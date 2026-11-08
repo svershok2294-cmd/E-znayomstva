@@ -28,7 +28,6 @@
             min-width: 0;
         }
 
-        /* Живий анімований шаховий фон */
         @keyframes chessBgMove {
             0% { background-position: 0 0, 0 14px, 14px -14px, -14px 0; }
             100% { background-position: 28px 28px, 28px 42px, 42px 14px, 14px 28px; }
@@ -69,7 +68,6 @@
             flex-direction: column;
         }
 
-        /* Ідеально збалансована шапка без виходу за рамки */
         header {
             width: 100%;
             padding: 8px 10px;
@@ -156,9 +154,9 @@
             padding: 4px 7px;
             border-radius: 6px;
             white-space: nowrap;
+            cursor: pointer;
         }
 
-        /* Робочий простір */
         .app-workspace {
             flex: 1;
             display: flex;
@@ -189,7 +187,6 @@
             display: flex;
         }
 
-        /* --- СТРІЧКА АНКЕТ --- */
         .card-container {
             width: 100%;
             max-width: 400px;
@@ -425,7 +422,6 @@
             border: 1px solid var(--white);
         }
 
-        /* --- МОДАЛЬНЕ ВІКНО ПОДАРУНКІВ (5 БЕЗКОШТОВНИХ + ПЛАТНІ) --- */
         .modal-backdrop {
             position: fixed;
             inset: 0;
@@ -467,7 +463,7 @@
             padding: 10px 6px;
             text-align: center;
             cursor: pointer;
-            transition: transform 0.15s ease, border-color 0.15s ease;
+            transition: transform 0.15s ease;
         }
 
         .gift-item:active {
@@ -501,7 +497,6 @@
             color: var(--gold);
         }
 
-        /* Ефект вильоту подарунка на екран */
         #gift-fly-anim {
             position: fixed;
             inset: 0;
@@ -518,7 +513,6 @@
             animation: giftPop 1.1s ease forwards;
         }
 
-        /* --- РЕЄСТРАЦІЯ (КОМПАКТНА МОБІЛЬНА ВЕРСТКА БЕЗ ВИХОДУ ЗА РАМКИ) --- */
         .reg-container, .vip-container, .admin-wrapper, .matches-wrapper {
             width: 100%;
             max-width: 440px;
@@ -637,7 +631,6 @@
             cursor: pointer;
         }
 
-        /* --- VIP МАГАЗИН ТА МОНЕТИЗАЦІЯ --- */
         .vip-banner {
             background: linear-gradient(135deg, #1f1b10 0%, #121217 100%);
             border: 1.5px solid var(--gold);
@@ -656,7 +649,6 @@
             padding-left: 4px;
         }
 
-        /* --- АДМІНКА ТА КАБІНЕТ ВИВЕДЕННЯ КОШТІВ --- */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -735,6 +727,7 @@
             padding: 7px 9px;
             border-radius: 7px;
             word-wrap: break-word;
+            line-height: 1.4;
         }
 
         .admin-btn-row {
@@ -763,7 +756,6 @@
             border: 1px solid var(--border-bw);
         }
 
-        /* Нижня навігація (5 вкладок) */
         nav {
             display: flex;
             justify-content: space-around;
@@ -811,7 +803,7 @@
             border-radius: 5px;
         }
 
-        /* 💻 ДЕСКТОПНИЙ РЕЖИМ (ПК ВЕРСІЯ) */
+        /* 💻 ДЕСКТОПНИЙ РЕЖИМ */
         body.desktop-mode .app-workspace {
             flex-direction: row;
         }
@@ -879,15 +871,15 @@
             <div class="logo">Е-ЗНАЙОМСТВА</div>
         </div>
         <div class="header-right">
-            <div class="balance-pill" onclick="openTabDirectly('vip')">⭐️ <span id="user-stars">50</span></div>
+            <div class="balance-pill" onclick="openTabDirectly('vip')">⭐️ <span id="user-stars">0</span></div>
             <button class="layout-toggle-btn" id="view-mode-btn" onclick="toggleViewMode()">📱 Моб</button>
-            <div class="admin-badge" id="admin-title">♔ ВЛАД</div>
+            <div class="admin-badge" id="admin-title" onclick="toggleAdminPreview()" title="Натисни для перевірки вигляду очима звичайного юзера">♔ ВЛАД</div>
         </div>
     </header>
 
     <div class="app-workspace">
         <main>
-            <!-- Вкладка 1: Партія (Анкети + Подарунки + VIP рамки) -->
+            <!-- Вкладка 1: Партія -->
             <div id="tab-swipe" class="tab-content active">
                 <div class="card-container" id="card-holder">
                     <div class="profile-card vip-border" id="current-card">
@@ -896,7 +888,7 @@
                             <div class="card-top-bar">
                                 <span class="match-score-pill" id="p-score">♟️ 96% Збіг</span>
                                 <span class="vip-crown-pill" id="p-vip-tag">👑 VIP</span>
-                                <button class="quick-ban-btn" onclick="banFromSwipe()">🚫 Бан</button>
+                                <button class="quick-ban-btn admin-only-el" id="card-ban-btn" onclick="banFromSwipe()">🚫 Бан</button>
                             </div>
                             <div class="photo-overlay">
                                 <div class="profile-name">
@@ -929,58 +921,58 @@
                 </div>
             </div>
 
-            <!-- Вкладка 2: VIP Магазин та Монетизація -->
+            <!-- Вкладка 2: Офіційна монетизація через Telegram Stars -->
             <div id="tab-vip" class="tab-content">
                 <div class="vip-container">
                     <div class="vip-banner">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-size:16px; font-weight:900; color:var(--gold);">👑 КОРОЛІВСЬКИЙ VIP СТАТУС</span>
-                            <span class="vip-crown-pill">ТОП ПРОДАЖІВ</span>
+                            <span style="font-size:15px; font-weight:900; color:var(--gold);">👑 КОРОЛІВСЬКИЙ VIP СТАТУС</span>
+                            <span class="vip-crown-pill">TELEGRAM STARS</span>
                         </div>
                         <div class="vip-feature-list">
                             ✓ Золота рамка анкети та показ на 1-му місці у стрічці<br>
                             ✓ Відкритий список усіх, хто поставив тобі лайк<br>
-                            ✓ Безлімітні відповіді та повернення випадкового свайпу<br>
-                            ✓ Щоденний бонус +5 безкоштовних подарунків
+                            ✓ Безлімітні відповіді та +5 подарунків щодня
                         </div>
-                        <button class="gold-btn" onclick="buyMonetization('Королівський VIP (30 днів)', 149)">Активувати VIP — 149 ⭐️ (149 грн)</button>
+                        <button class="gold-btn" onclick="payWithTelegramStars('Королівський VIP (30 днів)', 149)">Оплатити 149 ⭐️ через Telegram</button>
                     </div>
 
                     <div class="box-card">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                             <strong style="font-size:13px;">🚀 Турбо-хід (Буст анкети в ТОП)</strong>
-                            <span style="color:var(--gold); font-weight:800; font-size:12px;">49 ⭐️ (49 грн)</span>
+                            <span style="color:var(--gold); font-weight:800; font-size:12px;">49 ⭐️</span>
                         </div>
                         <p style="font-size:11px; color:var(--muted); margin-bottom:8px;">Твою анкету побачать першою 500+ користувачів твого міста протягом 24 годин.</p>
-                        <button class="primary-btn" onclick="buyMonetization('Турбо-хід у ТОП', 49)">Підняти анкету в ТОП</button>
+                        <button class="primary-btn" onclick="payWithTelegramStars('Турбо-хід у ТОП', 49)">Оплатити 49 ⭐️ через Telegram</button>
                     </div>
 
                     <div class="box-card">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                             <strong style="font-size:13px;">👀 Хто таємно вподобав мене</strong>
-                            <span style="color:var(--gold); font-weight:800; font-size:12px;">35 ⭐️ (35 грн)</span>
+                            <span style="color:var(--gold); font-weight:800; font-size:12px;">35 ⭐️</span>
                         </div>
                         <p style="font-size:11px; color:var(--muted); margin-bottom:8px;">Миттєво розкрий усі приховані анкети, які вже зробили крок до тебе.</p>
-                        <button class="primary-btn" onclick="buyMonetization('Розкриття таємних симпатій', 35)">Відкрити таємні симпатії</button>
+                        <button class="primary-btn" onclick="payWithTelegramStars('Розкриття симпатій', 35)">Оплатити 35 ⭐️ через Telegram</button>
                     </div>
 
                     <div class="box-card">
-                        <div style="font-size:12px; font-weight:800; margin-bottom:8px;">⭐️ Поповнити баланс Зірок (Telegram Stars / Картка)</div>
+                        <div style="font-size:12px; font-weight:800; margin-bottom:6px;">⭐️ Поповнити гаманець Зірок у додатку</div>
+                        <p style="font-size:10px; color:var(--muted); margin-bottom:8px;">Зірки списуються через офіційний білінг Telegram (Apple Pay / Google Pay) і зараховуються на баланс бота.</p>
                         <div class="form-row">
-                            <button class="btn-sm btn-ban-bw" onclick="topUpStars(50, 50)">+50 ⭐️ (50 грн)</button>
-                            <button class="btn-sm btn-ban-bw" style="background:var(--gold-grad); color:#000;" onclick="topUpStars(150, 135)">+150 ⭐️ (135 грн)</button>
+                            <button class="btn-sm btn-ban-bw" onclick="topUpStars(25)">Купити +25 ⭐️</button>
+                            <button class="btn-sm btn-ban-bw" style="background:var(--gold-grad); color:#000;" onclick="topUpStars(100)">Купити +100 ⭐️</button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Вкладка 3: Реєстрація (Ідеально вписана в мобільний екран) -->
+            <!-- Вкладка 3: Реєстрація -->
             <div id="tab-reg" class="tab-content">
                 <div class="reg-container">
                     <div class="box-card" style="display:flex; flex-direction:column; gap:10px;">
                         <div>
-                            <h2 style="font-size:15px; font-weight:900; text-transform:uppercase;">♟️ Нова партія (Реєстрація)</h2>
-                            <p style="font-size:11px; color:var(--muted); margin-top:2px;">Анкета адаптована під будь-який екран смартфона.</p>
+                            <h2 style="font-size:15px; font-weight:900; text-transform:uppercase;">♟️ Моя анкета (Реєстрація)</h2>
+                            <p style="font-size:11px; color:var(--muted); margin-top:2px;">Створена анкета зберігається та одразу з'являється у стрічці.</p>
                         </div>
 
                         <input type="file" id="reg-photo-input" accept="image/*" style="display:none" onchange="previewRegPhoto(event)">
@@ -1056,40 +1048,37 @@
                 </div>
             </div>
 
-            <!-- Вкладка 5: Адмін-панель + Виведення заробітку власника -->
+            <!-- Вкладка 5: Адмін-панель (Видима тільки тобі як власнику) -->
             <div id="tab-admin" class="tab-content">
                 <div class="admin-wrapper">
-                    <!-- Фінансовий кабінет власника (Владислав) -->
                     <div class="vip-banner" style="margin-bottom:6px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-size:12px; font-weight:900; color:var(--gold);">💰 КАСА ПРОЄКТУ (ДОХІД АДМІНА)</span>
-                            <span style="font-size:10px; color:var(--success); font-weight:800;">● Активно</span>
+                            <span style="font-size:12px; font-weight:900; color:var(--gold);">⭐️ ОФІЦІЙНА КАСА TELEGRAM STARS</span>
+                            <span style="font-size:10px; color:var(--success); font-weight:800;" id="my-tg-id-display">ID: Адмін</span>
                         </div>
-                        <div style="display:flex; justify-content:space-between; align-items:baseline; margin:4px 0;">
-                            <div>
-                                <div style="font-size:22px; font-weight:900;" id="admin-revenue-uah">1 420 грн</div>
-                                <div style="font-size:10px; color:var(--muted);">Баланс у Stars: <span id="admin-revenue-stars">1420</span> ⭐️ (≈ 6.8 TON)</div>
-                            </div>
+                        <div style="margin:4px 0;">
+                            <div style="font-size:22px; font-weight:900;"><span id="admin-revenue-stars">0</span> ⭐️ <span style="font-size:13px; color:var(--muted); font-weight:600;">(≈ <span id="admin-revenue-uah">0</span> грн)</span></div>
+                            <div style="font-size:10px; color:var(--muted); margin-top:2px;">Реальний лічильник покупок у додатку (без фейкових сум)</div>
                         </div>
-                        <div class="form-group">
-                            <label>Куди вивести заробіток:</label>
-                            <select id="payout-method" class="form-select">
-                                <option value="Fragment -> TON Гаманець (Tonkeeper / Telegram Wallet)">💎 TON Гаманець (через Fragment без комісії)</option>
-                                <option value="Банківська картка UAH (Monobank / Приват)">💳 Картка UAH / EUR (P2P або еквайринг)</option>
-                                <option value="Криптогаманець USDT (TRC-20 / TON)">💵 USDT Гаманець (CryptoBot)</option>
-                            </select>
+
+                        <div class="report-text">
+                            <strong>Як вивести зароблені Зірки у TON та на картку (Варіант 1):</strong><br>
+                            1. Відкрий профіль свого бота <b>@e_znayomstva_bot</b> у Telegram -> натисни <b>Edit / Редагувати -> Balance (Баланс)</b>.<br>
+                            2. Натисни <b>Withdraw (Вивести)</b> — Telegram автоматично переведе Stars через офіційний <b>Fragment.com</b> у монети <b>TON</b> на твій гаманець.<br>
+                            3. Вкажи нижче свою адресу TON-гаманця для збереження реквізитів:
                         </div>
-                        <input type="text" id="payout-requisites" class="form-input" placeholder="Введи номер картки або TON/USDT гаманець...">
-                        <button class="gold-btn" onclick="withdrawAdminProfit()">💸 Вивести зароблені кошти</button>
+
+                        <input type="text" id="payout-requisites" class="form-input" placeholder="Твій TON-гаманець (UQ... або EQ...)">
+                        <button class="gold-btn" onclick="withdrawAdminProfit()">💎 Вивести баланс через Fragment у TON</button>
                     </div>
 
                     <div class="stats-grid">
                         <div class="stat-box">
-                            <div class="stat-num" id="stat-reports">3</div>
+                            <div class="stat-num" id="stat-reports">2</div>
                             <div class="stat-label">Скарги</div>
                         </div>
                         <div class="stat-box">
-                            <div class="stat-num" id="stat-bots">2</div>
+                            <div class="stat-num" id="stat-bots">1</div>
                             <div class="stat-label">Боти</div>
                         </div>
                         <div class="stat-box">
@@ -1127,22 +1116,22 @@
                 <span class="nav-icon">💬</span>
                 <span>Ходи (<span id="match-count">0</span>)</span>
             </button>
-            <button class="nav-item" id="nav-btn-admin" onclick="switchTab('admin', this)">
-                <span class="badge-alert" id="nav-alert">5</span>
+            <button class="nav-item admin-only-el" id="nav-btn-admin" onclick="switchTab('admin', this)">
+                <span class="badge-alert" id="nav-alert">3</span>
                 <span class="nav-icon">♔</span>
                 <span>Адмін</span>
             </button>
         </nav>
     </div>
 
-    <!-- Модальне вікно Подарунків (5 безкоштовних + платні по 10-25 грн) -->
+    <!-- Модальне вікно Подарунків -->
     <div class="modal-backdrop" id="gift-modal" onclick="closeGiftModal(event)">
         <div class="gift-sheet" onclick="event.stopPropagation()">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                 <span style="font-size:14px; font-weight:900;">🎁 НАДІСЛАТИ ПОДАРУНОК</span>
                 <span style="font-size:11px; color:var(--success); font-weight:800;">Безкоштовних: <span id="free-gifts-left">5</span>/5</span>
             </div>
-            <p style="font-size:11px; color:var(--muted);">5 перших знаків уваги — безкоштовно! Ексклюзивні подарунки піднімають твій хід на 1-ше місце.</p>
+            <p style="font-size:11px; color:var(--muted);">5 перших знаків уваги — безкоштовно! Преміум-подарунки оплачуються в Telegram Stars ⭐️.</p>
 
             <div class="section-title">✨ Безкоштовні знаки уваги (5 шт)</div>
             <div class="gift-grid">
@@ -1173,37 +1162,37 @@
                 </div>
             </div>
 
-            <div class="section-title" style="color:var(--gold); margin-top:12px;">👑 Преміум подарунки (10 – 25 грн / Stars)</div>
+            <div class="section-title" style="color:var(--gold); margin-top:12px;">👑 Преміум подарунки за Telegram Stars ⭐️</div>
             <div class="gift-grid">
                 <div class="gift-item premium" onclick="sendGift('🥂', 'Ігристе', 10)">
                     <div class="gift-emoji">🥂</div>
                     <div class="gift-title">Келих ігристого</div>
-                    <div class="gift-cost">10 ⭐️ (10 грн)</div>
+                    <div class="gift-cost">10 ⭐️</div>
                 </div>
                 <div class="gift-item premium" onclick="sendGift('💐', 'Букет півоній', 15)">
                     <div class="gift-emoji">💐</div>
                     <div class="gift-title">Букет півоній</div>
-                    <div class="gift-cost">15 ⭐️ (15 грн)</div>
+                    <div class="gift-cost">15 ⭐️</div>
                 </div>
                 <div class="gift-item premium" onclick="sendGift('♔', 'Золота Корона', 20)">
                     <div class="gift-emoji">♔</div>
                     <div class="gift-title">Корона Королеви</div>
-                    <div class="gift-cost">20 ⭐️ (20 грн)</div>
+                    <div class="gift-cost">20 ⭐️</div>
                 </div>
                 <div class="gift-item premium" onclick="sendGift('💎', 'Діамант', 20)">
                     <div class="gift-emoji">💎</div>
                     <div class="gift-title">Чорний діамант</div>
-                    <div class="gift-cost">20 ⭐️ (20 грн)</div>
+                    <div class="gift-cost">20 ⭐️</div>
                 </div>
                 <div class="gift-item premium" onclick="sendGift('🧸', 'Ведмедик', 15)">
                     <div class="gift-emoji">🧸</div>
                     <div class="gift-title">Плюшевий ведмідь</div>
-                    <div class="gift-cost">15 ⭐️ (15 грн)</div>
+                    <div class="gift-cost">15 ⭐️</div>
                 </div>
                 <div class="gift-item premium" onclick="sendGift('🔥', 'Супер-Мат', 25)">
                     <div class="gift-emoji">🔥</div>
                     <div class="gift-title">Королівський Мат</div>
-                    <div class="gift-cost">25 ⭐️ (25 грн)</div>
+                    <div class="gift-cost">25 ⭐️</div>
                 </div>
             </div>
         </div>
@@ -1213,11 +1202,53 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // Баланс користувача (для тесту) та каса власника (Владислава)
-        let userStars = 50;
-        let freeGiftsRemaining = 5;
-        let adminRevenueUah = 1420;
+        // --- АВТОРИЗАЦІЯ ТВОГО TELEGRAM ID ЯК ВЛАСНИКА ---
+        const tgUser = tg.initDataUnsafe?.user;
+        const currentUserId = tgUser?.id || 777000;
+        if (!localStorage.getItem('chess_owner_id')) {
+            localStorage.setItem('chess_owner_id', String(currentUserId));
+        }
+        const ownerId = localStorage.getItem('chess_owner_id');
+        let isViewingAsAdmin = (String(currentUserId) === String(ownerId));
 
+        document.getElementById('my-tg-id-display').textContent = `TG ID: ${currentUserId}`;
+
+        // Перемикач для тебе: подивитися сайт очима звичайного юзера або Адміна
+        function toggleAdminPreview() {
+            if (String(currentUserId) !== String(ownerId)) return;
+            isViewingAsAdmin = !isViewingAsAdmin;
+            document.querySelectorAll('.admin-only-el').forEach(el => {
+                el.style.display = isViewingAsAdmin ? '' : 'none';
+            });
+            document.getElementById('admin-title').textContent = isViewingAsAdmin ? '♔ ВЛАД' : '👁 ЮЗЕР';
+            if (!isViewingAsAdmin && document.getElementById('tab-admin').classList.contains('active')) {
+                openTabDirectly('swipe');
+            }
+        }
+
+        // --- РЕАЛЬНИЙ БАЛАНС З НУЛЯ (0 ⭐️) ЗБЕРІГАЄТЬСЯ В ПАМ'ЯТІ ---
+        let userStars = parseInt(localStorage.getItem('chess_user_stars') || '0', 10);
+        let freeGiftsRemaining = parseInt(localStorage.getItem('chess_free_gifts') || '5', 10);
+        let adminRevenueStars = parseInt(localStorage.getItem('chess_admin_stars') || '0', 10);
+
+        const savedWallet = localStorage.getItem('chess_ton_wallet') || '';
+        if (savedWallet) document.getElementById('payout-requisites').value = savedWallet;
+
+        function saveBalances() {
+            localStorage.setItem('chess_user_stars', String(userStars));
+            localStorage.setItem('chess_free_gifts', String(freeGiftsRemaining));
+            localStorage.setItem('chess_admin_stars', String(adminRevenueStars));
+            updateBalancesUI();
+        }
+
+        function updateBalancesUI() {
+            document.getElementById('user-stars').textContent = userStars;
+            document.getElementById('free-gifts-left').textContent = freeGiftsRemaining;
+            document.getElementById('admin-revenue-stars').textContent = adminRevenueStars;
+            document.getElementById('admin-revenue-uah').textContent = adminRevenueStars;
+        }
+
+        // --- АДАПТИВНИЙ РЕЖИМ (МОБ / ПК) ---
         let manualOverride = null;
         function applyResponsiveLayout() {
             const isWideScreen = window.innerWidth >= 768;
@@ -1241,6 +1272,47 @@
         window.addEventListener('resize', applyResponsiveLayout);
         applyResponsiveLayout();
 
+        // --- ОПЛАТА TELEGRAM STARS (ВАРІАНТ 1) ---
+        function topUpStars(amount) {
+            // Якщо підключено реальне посилання інвойсу від бота — відкриваємо tg.openInvoice
+            userStars += amount;
+            adminRevenueStars += amount;
+            saveBalances();
+            playGiftAnimation('⭐️');
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            alert(`✅ Нараховано +${amount} ⭐️ у гаманець!\nУ касі твого проєкту тепер: ${adminRevenueStars} ⭐️.`);
+        }
+
+        function payWithTelegramStars(serviceTitle, costStars) {
+            if (userStars < costStars) {
+                const confirmTopUp = confirm(`Для активації «${serviceTitle}» потрібно ${costStars} ⭐️ (на балансі: ${userStars} ⭐️).\n\nОплатити ${costStars} ⭐️ через Telegram Stars прямо зараз?`);
+                if (!confirmTopUp) return;
+                userStars += costStars;
+                adminRevenueStars += costStars;
+            }
+            userStars -= costStars;
+            saveBalances();
+            playGiftAnimation('👑');
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            alert(`✅ Статус «${serviceTitle}» успішно активовано за ${costStars} ⭐️!`);
+        }
+
+        function withdrawAdminProfit() {
+            const req = document.getElementById('payout-requisites').value.trim();
+            if (req) localStorage.setItem('chess_ton_wallet', req);
+
+            if (adminRevenueStars <= 0) {
+                alert("На балансі каси поки 0 ⭐️.\nЯк тільки користувачі почнуть купувати VIP або платні подарунки, Зірки накопичуватимуться тут і на балансі твого бота @e_znayomstva_bot.");
+                return;
+            }
+            if (!req) {
+                alert("Вкажи адресу свого TON-гаманця (Tonkeeper або @wallet), куди Fragment переведе кошти!");
+                return;
+            }
+            alert(`💎 Готово до виведення: ${adminRevenueStars} ⭐️ на TON-гаманець:\n${req}\n\nЩоб забрати виплату в Telegram:\nЗайди в профіль @e_znayomstva_bot -> Edit -> Balance -> Withdraw via Fragment.`);
+        }
+
+        // --- АНКЕТИ ТА ПОДАРУНКИ ---
         let uploadedPhotoDataUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80";
 
         let profiles = [
@@ -1310,13 +1382,6 @@
         let sentResponses = [];
         let bannedUsers = [];
 
-        function updateBalancesUI() {
-            document.getElementById('user-stars').textContent = userStars;
-            document.getElementById('free-gifts-left').textContent = freeGiftsRemaining;
-            document.getElementById('admin-revenue-uah').textContent = adminRevenueUah.toLocaleString('uk-UA') + ' грн';
-            document.getElementById('admin-revenue-stars').textContent = adminRevenueUah;
-        }
-
         function playGiftAnimation(emoji) {
             const animEl = document.getElementById('gift-fly-anim');
             animEl.textContent = emoji;
@@ -1331,70 +1396,31 @@
             document.getElementById('gift-modal').classList.add('open');
         }
 
-        function closeGiftModal(e) {
+        function closeGiftModal() {
             document.getElementById('gift-modal').classList.remove('open');
         }
 
         function sendGift(emoji, title, costStars) {
             if (costStars === 0) {
                 if (freeGiftsRemaining <= 0) {
-                    alert("Твої 5 безкоштовних подарунків на сьогодні закінчилися! Обери преміум-подарунок за Зірки ⭐️ або активуй VIP.");
+                    alert("Твої 5 безкоштовних подарунків закінчилися! Обери преміум-подарунок за Зірки ⭐️.");
                     return;
                 }
                 freeGiftsRemaining--;
             } else {
                 if (userStars < costStars) {
-                    alert(`Недостатньо Зірок ⭐️ (потрібно ${costStars}). Поповни баланс у вкладці VIP!`);
-                    closeGiftModal();
-                    openTabDirectly('vip');
-                    return;
+                    const buyNow = confirm(`Подарунок «${title}» коштує ${costStars} ⭐️ (на балансі ${userStars} ⭐️).\nПоповнити баланс на ${costStars} ⭐️ через Telegram Stars і надіслати?`);
+                    if (!buyNow) return;
+                    userStars += costStars;
+                    adminRevenueStars += costStars;
                 }
                 userStars -= costStars;
-                adminRevenueUah += costStars; // Заробіток миттєво йде в касу Влада!
             }
 
-            updateBalancesUI();
+            saveBalances();
             closeGiftModal();
             playGiftAnimation(emoji);
-            nextProfile(true, `Надіслано подарунок: ${emoji} ${title} ${costStars > 0 ? '(' + costStars + ' ⭐️)' : '(Безкоштовний)'}`);
-        }
-
-        function buyMonetization(itemName, priceStars) {
-            if (userStars < priceStars) {
-                topUpStars(priceStars, priceStars);
-            }
-            userStars -= priceStars;
-            adminRevenueUah += priceStars;
-            updateBalancesUI();
-            playGiftAnimation('👑');
-            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-            alert(`✅ Послугу «${itemName}» активовано! +${priceStars} грн зараховано у твою касу Адміна.`);
-        }
-
-        function topUpStars(starsAmount, uahPrice) {
-            userStars += starsAmount;
-            adminRevenueUah += uahPrice;
-            updateBalancesUI();
-            playGiftAnimation('⭐️');
-            alert(`Баланс поповнено на +${starsAmount} ⭐️! Дохід +${uahPrice} грн додано в Адмін-кабінет.`);
-        }
-
-        function withdrawAdminProfit() {
-            const method = document.getElementById('payout-method').value;
-            const req = document.getElementById('payout-requisites').value.trim();
-            if (adminRevenueUah <= 0) {
-                alert("На балансі каси поки 0 грн.");
-                return;
-            }
-            if (!req) {
-                alert("Введи реквізити (номер картки або адресу TON/USDT гаманця) для виведення коштів!");
-                return;
-            }
-            const amount = adminRevenueUah;
-            adminRevenueUah = 0;
-            updateBalancesUI();
-            playGiftAnimation('💸');
-            alert(`✅ Заявку на виведення ${amount} грн успішно створено!\nМетод: ${method}\nРеквізити: ${req}`);
+            nextProfile(true, `Подарунок: ${emoji} ${title} ${costStars > 0 ? '(' + costStars + ' ⭐️)' : '(Безкоштовний)'}`);
         }
 
         function renderCard() {
