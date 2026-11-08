@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Е - Знайомства | Chess Pro Edition</title>
+    <title>Е - Знайомства | Firebase Cloud Edition</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
@@ -75,7 +75,6 @@
             flex-direction: column;
         }
 
-        /* Верхня шапка */
         header {
             width: 100%;
             padding: 8px 10px;
@@ -121,6 +120,20 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .db-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--gold);
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        .db-dot.online {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
         }
 
         .header-right {
@@ -177,7 +190,6 @@
             cursor: pointer;
         }
 
-        /* Робочий простір */
         .app-workspace {
             flex: 1;
             display: flex;
@@ -208,7 +220,6 @@
             display: flex;
         }
 
-        /* --- СТРІЧКА АНКЕТ ТА ІНДЕКС НАДІЙНОСТІ --- */
         .card-container {
             width: 100%;
             max-width: 400px;
@@ -377,7 +388,6 @@
             font-weight: 600;
         }
 
-        /* --- ПРАВИЛО ПЕРШОГО ХОДУ (СИСТЕМА ДЕБЮТУ) --- */
         .prompt-box {
             background: #18181f;
             border: 1px solid rgba(255, 255, 255, 0.28);
@@ -410,7 +420,6 @@
             margin-bottom: 7px;
         }
 
-        /* Швидкі інтелектуальні дебюти в 1 клік */
         .icebreakers-row {
             display: flex;
             gap: 5px;
@@ -434,11 +443,6 @@
             white-space: nowrap;
             cursor: pointer;
             flex-shrink: 0;
-        }
-
-        .icebreaker-chip:active {
-            background: var(--white);
-            color: var(--bg-dark);
         }
 
         .reply-box {
@@ -520,7 +524,6 @@
             border: 1px solid var(--white);
         }
 
-        /* --- СЕЙФ АКТИВНОСТІ ТА БОНУСІВ --- */
         .vault-banner {
             background: linear-gradient(135deg, #0d1f2d 0%, #121217 100%);
             border: 1.5px solid var(--cyan);
@@ -546,7 +549,6 @@
             transition: width 0.35s ease;
         }
 
-        /* --- МОДАЛЬНЕ ВІКНО ПОДАРУНКІВ --- */
         .modal-backdrop {
             position: fixed;
             inset: 0;
@@ -633,7 +635,6 @@
             animation: giftPop 1.1s ease forwards;
         }
 
-        /* --- СПІЛЬНІ КОНТЕЙНЕРИ --- */
         .reg-container, .vip-container, .admin-wrapper, .matches-wrapper {
             width: 100%;
             max-width: 440px;
@@ -1001,9 +1002,10 @@
         <div class="logo-wrap">
             <div class="chess-logo-icon">♞</div>
             <div class="logo">Е-ЗНАЙОМСТВА</div>
+            <span class="db-dot" id="db-status-dot" title="Статус бази Firebase"></span>
         </div>
         <div class="header-right">
-            <div class="vault-pill" onclick="openTabDirectly('vip')" title="Королівський Сейф бонусів">🏦 <span id="vault-pts">20</span>💎</div>
+            <div class="vault-pill" onclick="openTabDirectly('vip')">🏦 <span id="vault-pts">20</span>💎</div>
             <div class="balance-pill" onclick="openTabDirectly('vip')">⭐️ <span id="user-stars">0</span></div>
             <button class="layout-toggle-btn" id="view-mode-btn" onclick="toggleViewMode()">📱 Моб</button>
             <div class="admin-badge" id="admin-title" onclick="toggleAdminPreview()">♔ ВЛАД</div>
@@ -1012,7 +1014,7 @@
 
     <div class="app-workspace">
         <main>
-            <!-- Вкладка 1: Партія (Фішки №1, №2, №3, №4) -->
+            <!-- Вкладка 1: Партія -->
             <div id="tab-swipe" class="tab-content active">
                 <div class="card-container" id="card-holder">
                     <div class="profile-card vip-border" id="current-card">
@@ -1022,7 +1024,7 @@
                                 <span class="trust-pill" id="p-trust">🛡️ 98% Надійна партія</span>
                                 <span class="vip-crown-pill" id="p-vip-tag">👑 VIP</span>
                                 <div class="top-actions-right">
-                                    <button class="report-user-btn" onclick="reportCurrentProfile()" title="Поскаржитися на анкету">⚠️ Скарга</button>
+                                    <button class="report-user-btn" onclick="reportCurrentProfile()">⚠️ Скарга</button>
                                     <button class="quick-ban-btn admin-only-el" onclick="banFromSwipe()">🚫 Бан</button>
                                 </div>
                             </div>
@@ -1038,7 +1040,6 @@
                         <div class="profile-details">
                             <div class="tags" id="p-tags"></div>
 
-                            <!-- ФІШКА №1: ПРАВИЛО ПЕРШОГО ХОДУ (БЕЗ БАНАЛЬНИХ "ПРИВІТ") -->
                             <div class="prompt-box" id="prompt-box-el">
                                 <div class="prompt-header">
                                     <span id="p-question">💬 Питання для першого ходу:</span>
@@ -1067,10 +1068,9 @@
                 </div>
             </div>
 
-            <!-- Вкладка 2: VIP Магазин + Королівський Сейф (Фішка №3) -->
+            <!-- Вкладка 2: VIP Магазин + Королівський Сейф -->
             <div id="tab-vip" class="tab-content">
                 <div class="vip-container">
-                    <!-- Королівський Сейф -->
                     <div class="vault-banner">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <span style="font-size:13px; font-weight:900; color:var(--cyan);">🏦 КОРОЛІВСЬКИЙ СЕЙФ АКТИВНОСТІ</span>
@@ -1089,7 +1089,7 @@
                             <span class="vip-crown-pill">TELEGRAM STARS</span>
                         </div>
                         <div class="vip-feature-list">
-                            ✓ Золота рамка анкети та показ на 1-му місці у стрічці<br>
+                            ✓ Золота рамка анкети та показ на 1-му місці у стрічці Firebase<br>
                             ✓ Підвищений Індекс Надійності (+15% до репутації 🛡️)<br>
                             ✓ Щоденне поповнення: +5 безкоштовних подарунків та +50 💎 у Сейф
                         </div>
@@ -1115,13 +1115,13 @@
                 </div>
             </div>
 
-            <!-- Вкладка 3: Реєстрація -->
+            <!-- Вкладка 3: Реєстрація (Зберігає в Firebase Cloud Firestore) -->
             <div id="tab-reg" class="tab-content">
                 <div class="reg-container">
                     <div class="box-card" style="display:flex; flex-direction:column; gap:10px;">
                         <div>
-                            <h2 style="font-size:15px; font-weight:900; text-transform:uppercase;">♟️ Моя анкета (Реєстрація)</h2>
-                            <p style="font-size:11px; color:var(--muted); margin-top:2px;">Повністю заповнена анкета автоматично отримує 🛡️ 99% Індексу Надійності!</p>
+                            <h2 style="font-size:15px; font-weight:900; text-transform:uppercase;">♟️ Моя анкета (Cloud Firestore)</h2>
+                            <p style="font-size:11px; color:var(--muted); margin-top:2px;">Анкета зберігається у хмарній базі Firebase (nazviazku-38b50) і миттєво стає доступною для всіх користувачів.</p>
                         </div>
 
                         <input type="file" id="reg-photo-input" accept="image/*" style="display:none" onchange="previewRegPhoto(event)">
@@ -1129,7 +1129,7 @@
                             <img id="reg-photo-preview" class="photo-preview" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80" alt="Прев'ю">
                             <div>
                                 <div style="font-size:12px; font-weight:800;">📸 Завантажити головне фото</div>
-                                <div style="font-size:10px; color:var(--muted);">Натисни для вибору з галереї</div>
+                                <div style="font-size:10px; color:var(--muted);" id="photo-status-text">Авто-стиснення для хмарної бази активне</div>
                             </div>
                         </div>
 
@@ -1184,7 +1184,7 @@
                             <textarea id="reg-prompt-a" class="form-textarea" rows="2">Запросити на вечірню каву і обговорити улюблені фільми ✨</textarea>
                         </div>
 
-                        <button class="primary-btn" onclick="submitRegistration()">♞ Опублікувати анкету (+30 💎 у Сейф)</button>
+                        <button class="primary-btn" id="reg-submit-btn" onclick="submitRegistration()">♞ Зберегти анкету в Firebase (+30 💎)</button>
                     </div>
                 </div>
             </div>
@@ -1192,12 +1192,12 @@
             <!-- Вкладка 4: Ходи та Відповіді -->
             <div id="tab-matches" class="tab-content">
                 <div class="matches-wrapper">
-                    <div class="section-title">♟️ Твої ходи, подарунки та відповіді</div>
+                    <div class="section-title">♟️ Твої ходи, подарунки та відповіді (Realtime)</div>
                     <div id="matches-container"></div>
                 </div>
             </div>
 
-            <!-- Вкладка 5: Адмін-панель + Авто-Фільтр (Фішка №4) -->
+            <!-- Вкладка 5: Адмін-панель -->
             <div id="tab-admin" class="tab-content">
                 <div class="admin-wrapper">
                     <div class="vip-banner" style="margin-bottom:4px;">
@@ -1214,10 +1214,10 @@
 
                     <div class="box-card" style="border-color:rgba(52,199,89,0.4);">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <strong style="font-size:11px; color:var(--success);">🛡️ АВТО-СКАНЕР СПАМУ ТА ОБРАЗ АКТИВНИЙ</strong>
-                            <span style="font-size:10px; color:var(--muted);">24/7 AI-Контроль</span>
+                            <strong style="font-size:11px; color:var(--success);" id="firebase-admin-status">🟢 FIREBASE: ПІДКЛЮЧЕНО (nazviazku-38b50)</strong>
+                            <span style="font-size:10px; color:var(--muted);">Cloud Sync</span>
                         </div>
-                        <p style="font-size:10px; color:var(--muted); margin-top:4px;">Система автоматично перехоплює посилання (`http`, `t.me`), рекламу крипти та нецензурні слова в «Першому ході» і відправляє порушників сюди на розгляд.</p>
+                        <p style="font-size:10px; color:var(--muted); margin-top:4px;">Усі анкети, скарги, автоматичні перехоплення спаму та бани синхронізуються в реальному часі через колекції <code>ez_users</code>, <code>ez_reports</code> та <code>ez_moves</code>.</p>
                     </div>
 
                     <div class="stats-grid">
@@ -1279,7 +1279,7 @@
                 <span style="font-size:14px; font-weight:900;">🎁 НАДІСЛАТИ ПОДАРУНОК (+25 💎 У СЕЙФ)</span>
                 <span style="font-size:11px; color:var(--success); font-weight:800;">Безкоштовних: <span id="free-gifts-left">5</span>/5</span>
             </div>
-            <p style="font-size:11px; color:var(--muted);">Подарунок миттєво зараховується як красивий перший хід і наповнює твій Королівський Сейф!</p>
+            <p style="font-size:11px; color:var(--muted);">Подарунок миттєво зараховується як перший хід і зберігається в Firebase!</p>
 
             <div class="section-title">✨ Безкоштовні знаки уваги (5 шт)</div>
             <div class="gift-grid">
@@ -1346,20 +1346,53 @@
         </div>
     </div>
 
+    <!-- ПІДКЛЮЧЕННЯ ОФІЦІЙНИХ БІБЛІОТЕК FIREBASE FIRESTORE -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
 
+        // =========================================================================
+        // 🔥 ПІДКЛЮЧЕНО ТВОЇ КЛЮЧІ FIREBASE (nazviazku-38b50):
+        // =========================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCVvoI9NW-BSXVbjiTyGeKutAqJjaarsr0",
+            authDomain: "nazviazku-38b50.firebaseapp.com",
+            projectId: "nazviazku-38b50",
+            storageBucket: "nazviazku-38b50.firebasestorage.app",
+            messagingSenderId: "1027185291009",
+            appId: "1:1027185291009:web:db922f3d5a7325588c7500"
+        };
+
+        let db = null;
+        let isFirebaseConnected = false;
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            isFirebaseConnected = true;
+            document.getElementById('db-status-dot').classList.add('online');
+            document.getElementById('firebase-admin-status').textContent = "🟢 FIREBASE: ПІДКЛЮЧЕНО В РЕАЛЬНОМУ ЧАСІ (nazviazku-38b50)";
+        } catch (err) {
+            console.warn("Firebase fallback mode:", err);
+        }
+
+        // --- АВТОРИЗАЦІЯ TELEGRAM ---
         const tgUser = tg.initDataUnsafe?.user;
         const currentUserId = tgUser?.id || 777000;
-        const currentUserName = tgUser?.first_name || "Гравець";
+        const currentUserName = tgUser?.first_name || "Владислав";
+
+        if (tgUser?.first_name) {
+            document.getElementById('reg-name').value = tgUser.first_name;
+        }
 
         if (!localStorage.getItem('chess_owner_id')) {
             localStorage.setItem('chess_owner_id', String(currentUserId));
         }
         const ownerId = localStorage.getItem('chess_owner_id');
         let isViewingAsAdmin = (String(currentUserId) === String(ownerId));
-
         document.getElementById('my-tg-id-display').textContent = `TG ID: ${currentUserId}`;
 
         function toggleAdminPreview() {
@@ -1374,7 +1407,7 @@
             }
         }
 
-        // --- БАЛАНС STARS ТА КОРОЛІВСЬКИЙ СЕЙФ (ФІШКА №3) ---
+        // --- БАЛАНСИ ТА СЕЙФ ---
         let userStars = parseInt(localStorage.getItem('chess_user_stars') || '0', 10);
         let freeGiftsRemaining = parseInt(localStorage.getItem('chess_free_gifts') || '5', 10);
         let adminRevenueStars = parseInt(localStorage.getItem('chess_admin_stars') || '0', 10);
@@ -1389,6 +1422,13 @@
             localStorage.setItem('chess_admin_stars', String(adminRevenueStars));
             localStorage.setItem('chess_vault_pts', String(vaultPoints));
             updateBalancesUI();
+
+            if (isFirebaseConnected && db) {
+                db.collection('ez_stats').doc('global_cashbox').set({
+                    adminRevenueStars: adminRevenueStars,
+                    updatedAt: Date.now()
+                }, { merge: true }).catch(e => console.warn(e));
+            }
         }
 
         function updateBalancesUI() {
@@ -1416,7 +1456,6 @@
             freeGiftsRemaining += 5;
             saveBalances();
             playGiftAnimation('🏦');
-            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
             alert("🎉 Королівський Сейф відкрито! Твій профіль піднято у VIP-ТОП на 3 дні + нараховано 5 безкоштовних подарунків!");
         }
 
@@ -1438,16 +1477,15 @@
             const currentlyDesktop = document.body.classList.contains('desktop-mode');
             manualOverride = currentlyDesktop ? 'mobile' : 'desktop';
             applyResponsiveLayout();
-            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         }
 
         window.addEventListener('resize', applyResponsiveLayout);
         applyResponsiveLayout();
 
-        // --- АНКЕТИ З ІНДЕКСОМ НАДІЙНОСТІ ТА ШВИДКИМИ ДЕБЮТАМИ ---
+        // --- СТАРТОВІ АНКЕТИ + СИНХРОНІЗАЦІЯ FIREBASE ---
         let uploadedPhotoDataUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80";
 
-        let profiles = [
+        const defaultProfiles = [
             {
                 id: "#1042",
                 isVip: true,
@@ -1461,8 +1499,7 @@
                 answer: "«Запросити на вечірню прогулянку біля моря без банальних питань про погоду»",
                 icebreakers: [
                     "Знаю ідеальне місце з кавою біля моря ☕🌊",
-                    "Домовилися: жодного слова про погоду, тільки кіно 🎬",
-                    "Який твій улюблений маршрут у вечірній Одесі?"
+                    "Домовилися: жодного слова про погоду, тільки кіно 🎬"
                 ]
             },
             {
@@ -1477,7 +1514,6 @@
                 question: "💬 Моя головна ціль тут:",
                 answer: "«Шукаю спонсора або переходь у мій ТГ-канал за посиланням у профілі 😘»",
                 icebreakers: [
-                    "Схоже на спам-бота 🤖",
                     "Перевірка анкети модератором 🛡️"
                 ]
             },
@@ -1494,12 +1530,12 @@
                 answer: "«Стрибала з парашутом, вмію грати сицилійський захист у шахах, ніколи не пила каву. Вгадаєш?»",
                 icebreakers: [
                     "Ставлю на те, що у Львові неможливо не пити каву ☕😄",
-                    "Зіграємо партію з сицилійським захистом? ♟️",
-                    "Стрибок з парашутом — це потужно! Де стрибала?"
+                    "Зіграємо партію з сицилійським захистом? ♟️"
                 ]
             }
         ];
 
+        let profiles = [...defaultProfiles];
         let reportsData = [
             {
                 id: "rep-1",
@@ -1507,16 +1543,8 @@
                 reason: "Спам / Фішинг",
                 text: "Скарга від Аліни: «Кидає посилання на фейкову біржу в системі відповідей»",
                 img: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80"
-            },
-            {
-                id: "rep-2",
-                name: "Анжела, 19 (@angela_vip_99)",
-                reason: "Фейк / Вимагання",
-                text: "Скарга від Дмитра: «Чужі фото з Pinterest, просить скинути гроші на картку»",
-                img: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80"
             }
         ];
-
         let botsData = [
             {
                 id: "bot-1",
@@ -1531,7 +1559,83 @@
         let sentResponses = [];
         let bannedUsers = [];
 
-        // --- ФІШКА №4: АВТОМАТИЧНИЙ АНТИ-СПАМ ТА АНТИ-ТОКСИК СКАНЕР ---
+        // Слухачі реального часу Firebase Firestore
+        if (isFirebaseConnected && db) {
+            db.collection('ez_users').orderBy('createdAt', 'desc').limit(50).onSnapshot(snapshot => {
+                const cloudProfiles = [];
+                const cloudBanned = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.isBanned) {
+                        cloudBanned.push({ docId: doc.id, ...data });
+                    } else {
+                        cloudProfiles.push({ docId: doc.id, ...data });
+                    }
+                });
+                bannedUsers = cloudBanned;
+                profiles = [...cloudProfiles, ...defaultProfiles];
+                renderCard();
+                renderAdminLists();
+            }, err => {
+                console.warn("Firestore rules notice:", err);
+                document.getElementById('firebase-admin-status').textContent = "⚠️ ПЕРЕВІР FIRESTORE RULES (ДОЗВОЛЬ READ/WRITE ДЛЯ ez_*)";
+            });
+
+            db.collection('ez_reports').orderBy('createdAt', 'desc').limit(30).onSnapshot(snapshot => {
+                const cloudReports = [];
+                snapshot.forEach(doc => {
+                    cloudReports.push({ id: doc.id, ...doc.data() });
+                });
+                if (cloudReports.length > 0) {
+                    reportsData = cloudReports;
+                    renderAdminLists();
+                }
+            }, err => console.warn(err));
+
+            db.collection('ez_moves').where('fromUserId', '==', String(currentUserId)).limit(30).onSnapshot(snapshot => {
+                const moves = [];
+                snapshot.forEach(doc => moves.push(doc.data()));
+                if (moves.length > 0) {
+                    sentResponses = moves;
+                    updateMatchesUI();
+                }
+            }, err => console.warn(err));
+        }
+
+        // --- АВТОМАТИЧНЕ СТИСНЕННЯ ФОТО ДО 45 КБ ДЛЯ FIREBASE ---
+        function previewRegPhoto(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            document.getElementById('photo-status-text').textContent = "⏳ Оптимізація фото для хмари...";
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const maxSize = 600;
+                    let w = img.width;
+                    let h = img.height;
+                    if (w > h && w > maxSize) {
+                        h = Math.round((h * maxSize) / w);
+                        w = maxSize;
+                    } else if (h > maxSize) {
+                        w = Math.round((w * maxSize) / h);
+                        h = maxSize;
+                    }
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    uploadedPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.72);
+                    document.getElementById('reg-photo-preview').src = uploadedPhotoDataUrl;
+                    document.getElementById('photo-status-text').textContent = "✅ Фото оптимізовано і готове до збереження!";
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- АНТИ-СПАМ ФІЛЬТР ---
         const forbiddenPatterns = [
             /http/i, /t\.me/i, /@/i, /крипт/i, /заробіт/i, /казино/i, /ставк/i, /дур/i, /ідіот/i, /лох/i
         ];
@@ -1539,38 +1643,37 @@
         function checkAutoModeration(text) {
             for (let pattern of forbiddenPatterns) {
                 if (pattern.test(text)) {
-                    // Автоматичний репорт в Адмінку Владу!
-                    reportsData.unshift({
-                        id: 'auto-' + Date.now(),
+                    const newReport = {
                         name: `${currentUserName} (TG ID: ${currentUserId})`,
-                        reason: "🛡️ АВТО-БЛОК: Спам / Посилання / Образа",
-                        text: `Авто-сканер заблокував спробу відправити заборонений текст: «${text}»`,
-                        img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80"
-                    });
-                    renderAdminLists();
+                        reason: "🛡️ АВТО-БЛОК: Спам / Посилання",
+                        text: `Авто-сканер заблокував текст: «${text}»`,
+                        img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80",
+                        createdAt: Date.now()
+                    };
+                    if (isFirebaseConnected && db) {
+                        db.collection('ez_reports').add(newReport).catch(e => console.warn(e));
+                    } else {
+                        reportsData.unshift({ id: 'auto-' + Date.now(), ...newReport });
+                        renderAdminLists();
+                    }
                     return false;
                 }
             }
             return true;
         }
 
-        // --- ФІШКА №1: ПЕРЕВІРКА "ПРАВИЛА ПЕРШОГО ХОДУ" (ЗАБОРОНА БАНАЛЬНИХ "ПРИВІТ") ---
         const boringGreetings = ['привіт', 'привет', 'хай', 'ку', 'добрий день', 'як справи', 'як ти', 'hello', 'hi', 'йоу'];
 
         function isBoringOrEmpty(text) {
             const clean = text.toLowerCase().replace(/[.,!?]/g, '').trim();
             if (!clean || clean.length < 6) return true;
             if (boringGreetings.includes(clean)) return true;
-            const words = clean.split(/\s+/);
-            if (words.length < 2) return true;
-            return false;
+            return clean.split(/\s+/).length < 2;
         }
 
         function fillIcebreaker(text) {
-            const input = document.getElementById('reply-input');
-            input.value = text;
+            document.getElementById('reply-input').value = text;
             document.getElementById('debut-hint-msg').style.display = 'none';
-            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         }
 
         function sendPromptReply() {
@@ -1583,24 +1686,22 @@
                 void box.offsetWidth;
                 box.classList.add('error-shake');
                 document.getElementById('debut-hint-msg').style.display = 'block';
-                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
                 return;
             }
 
             if (!checkAutoModeration(text)) {
-                alert("🛡️ Спрацював Авто-захист «Е - Знайомства»!\nПовідомлення містить посилання, спам або заборонені слова. Спробу зафіксовано та передано в Адмін-центр.");
+                alert("🛡️ Спрацював Авто-захист! Повідомлення містить заборонені посилання або спам.");
                 input.value = '';
                 return;
             }
 
             document.getElementById('debut-hint-msg').style.display = 'none';
-            addVaultPoints(10); // +10 балів у Сейф за якісний хід!
+            addVaultPoints(10);
             nextProfile(true, `Дебютний хід (+10 💎): «${text}»`);
         }
 
         function attemptSmartMatch() {
-            const input = document.getElementById('reply-input');
-            const text = input.value.trim();
+            const text = document.getElementById('reply-input').value.trim();
             if (!isBoringOrEmpty(text)) {
                 sendPromptReply();
             } else {
@@ -1609,45 +1710,46 @@
                 void box.offsetWidth;
                 box.classList.add('error-shake');
                 document.getElementById('debut-hint-msg').style.display = 'block';
-                input.focus();
-                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+                document.getElementById('reply-input').focus();
             }
         }
 
-        // Скарга від користувача на поточну анкету (знижує Trust Score і падає в Адмінку)
         function reportCurrentProfile() {
             if (currentIndex >= profiles.length) return;
             const target = profiles[currentIndex];
             const reason = prompt(`Чому ти хочеш поскаржитися на анкету «${target.name}»?`, "Спам / Фейкова анкета");
             if (!reason) return;
 
-            reportsData.unshift({
-                id: 'user-rep-' + Date.now(),
+            const repObj = {
                 name: `${target.name} (${target.id})`,
                 reason: "Скарга зі стрічки",
-                text: `Користувач ${currentUserName} подав скаргу: «${reason}» (Індекс надійності анкети знижено)`,
-                img: target.img
-            });
+                text: `Користувач ${currentUserName} подав скаргу: «${reason}»`,
+                img: target.img,
+                createdAt: Date.now()
+            };
 
-            renderAdminLists();
-            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
-            alert("✅ Скаргу миттєво передано Головному Адміну (Владиславу). Анкету приховано з твоєї стрічки.");
+            if (isFirebaseConnected && db) {
+                db.collection('ez_reports').add(repObj).catch(e => console.warn(e));
+            } else {
+                reportsData.unshift({ id: 'rep-' + Date.now(), ...repObj });
+                renderAdminLists();
+            }
+
+            alert("✅ Скаргу миттєво передано в Адмін-центр.");
             nextProfile(false, '');
         }
 
-        // --- ОПЛАТА STARS ---
         function topUpStars(amount) {
             userStars += amount;
             adminRevenueStars += amount;
             saveBalances();
             playGiftAnimation('⭐️');
-            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-            alert(`✅ Нараховано +${amount} ⭐️ у гаманець!\nУ касі проєкту тепер: ${adminRevenueStars} ⭐️.`);
+            alert(`✅ Нараховано +${amount} ⭐️ у гаманець!`);
         }
 
         function payWithTelegramStars(serviceTitle, costStars) {
             if (userStars < costStars) {
-                const confirmTopUp = confirm(`Для активації «${serviceTitle}» потрібно ${costStars} ⭐️ (на балансі: ${userStars} ⭐️).\n\nОплатити ${costStars} ⭐️ через Telegram Stars прямо зараз?`);
+                const confirmTopUp = confirm(`Для активації «${serviceTitle}» потрібно ${costStars} ⭐️.\nОплатити ${costStars} ⭐️ через Telegram Stars прямо зараз?`);
                 if (!confirmTopUp) return;
                 userStars += costStars;
                 adminRevenueStars += costStars;
@@ -1656,8 +1758,7 @@
             addVaultPoints(50);
             saveBalances();
             playGiftAnimation('👑');
-            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-            alert(`✅ Статус «${serviceTitle}» активовано за ${costStars} ⭐️! +50 💎 бонусних балів додано у твій Сейф.`);
+            alert(`✅ Статус «${serviceTitle}» активовано! +50 💎 додано у Сейф.`);
         }
 
         function withdrawAdminProfit() {
@@ -1671,7 +1772,7 @@
                 alert("Вкажи адресу свого TON-гаманця!");
                 return;
             }
-            alert(`💎 Готово до виведення: ${adminRevenueStars} ⭐️ на TON-гаманець:\n${req}\n\nЗайди в профіль @e_znayomstva_bot -> Edit -> Balance -> Withdraw via Fragment.`);
+            alert(`💎 Готово до виведення: ${adminRevenueStars} ⭐️ на TON-гаманець:\n${req}`);
         }
 
         function playGiftAnimation(emoji) {
@@ -1695,13 +1796,13 @@
         function sendGift(emoji, title, costStars) {
             if (costStars === 0) {
                 if (freeGiftsRemaining <= 0) {
-                    alert("Твої 5 безкоштовних подарунків закінчилися! Обери преміум-подарунок за Зірки ⭐️ або відкрий Сейф.");
+                    alert("Твої 5 безкоштовних подарунків закінчилися! Обери преміум-подарунок за Зірки ⭐️.");
                     return;
                 }
                 freeGiftsRemaining--;
             } else {
                 if (userStars < costStars) {
-                    const buyNow = confirm(`Подарунок «${title}» коштує ${costStars} ⭐️.\nПоповнити баланс на ${costStars} ⭐️ через Telegram Stars і надіслати?`);
+                    const buyNow = confirm(`Подарунок «${title}» коштує ${costStars} ⭐️.\nПоповнити баланс на ${costStars} ⭐️ і надіслати?`);
                     if (!buyNow) return;
                     userStars += costStars;
                     adminRevenueStars += costStars;
@@ -1709,11 +1810,11 @@
                 userStars -= costStars;
             }
 
-            addVaultPoints(25); // +25 балів у Сейф за подарунок!
+            addVaultPoints(25);
             saveBalances();
             closeGiftModal();
             playGiftAnimation(emoji);
-            nextProfile(true, `Подарунок (+25 💎 у Сейф): ${emoji} ${title} ${costStars > 0 ? '(' + costStars + ' ⭐️)' : '(Безкоштовний)'}`);
+            nextProfile(true, `Подарунок (+25 💎): ${emoji} ${title}`);
         }
 
         function renderCard() {
@@ -1722,8 +1823,8 @@
                 cardHolder.innerHTML = `
                     <div class="box-card" style="text-align:center; padding:24px;">
                         <h3 style="margin-bottom:8px;">♔ Партію завершено!</h3>
-                        <p style="font-size:12px; color:var(--muted); margin-bottom:14px;">Усі анкети переглянуто. Створи нову анкету або почни заново.</p>
-                        <button class="primary-btn" onclick="location.reload()">Почати нову партію</button>
+                        <p style="font-size:12px; color:var(--muted); margin-bottom:14px;">Усі анкети переглянуто. Додай свою анкету або онови стрічку.</p>
+                        <button class="primary-btn" onclick="location.reload()">Оновити стрічку</button>
                     </div>`;
                 return;
             }
@@ -1731,6 +1832,7 @@
             const p = profiles[currentIndex];
             const cardEl = document.getElementById('current-card');
             const trustEl = document.getElementById('p-trust');
+            if (!cardEl) return;
 
             cardEl.classList.remove('vip-border', 'risk-border');
             trustEl.classList.remove('low-trust');
@@ -1754,7 +1856,7 @@
             document.getElementById('debut-hint-msg').style.display = 'none';
 
             const tagsBox = document.getElementById('p-tags');
-            tagsBox.innerHTML = p.tags.map(t => `<span class="tag">${t}</span>`).join('');
+            tagsBox.innerHTML = (p.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
 
             const iceBox = document.getElementById('icebreakers-box');
             const chips = p.icebreakers || ["Цікава відповідь, розкажеш детальніше? ✨", "Зіграємо цю партію за чашкою кави? ☕"];
@@ -1762,8 +1864,6 @@
         }
 
         function nextProfile(isLike, customReply) {
-            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred(isLike ? 'medium' : 'light');
-
             const card = document.getElementById('current-card');
             if (!card) return;
 
@@ -1771,11 +1871,20 @@
             card.style.opacity = '0';
 
             if (isLike) {
-                sentResponses.push({
-                    ...profiles[currentIndex],
-                    myReply: customReply || "Змістовний хід ♔"
-                });
+                const moveObj = {
+                    fromUserId: String(currentUserId),
+                    name: profiles[currentIndex].name,
+                    city: profiles[currentIndex].city,
+                    img: profiles[currentIndex].img,
+                    myReply: customReply || "Змістовний хід ♔",
+                    createdAt: Date.now()
+                };
+                sentResponses.unshift(moveObj);
                 updateMatchesUI();
+
+                if (isFirebaseConnected && db) {
+                    db.collection('ez_moves').add(moveObj).catch(e => console.warn(e));
+                }
             }
 
             setTimeout(() => {
@@ -1795,33 +1904,28 @@
         function banFromSwipe() {
             if (currentIndex >= profiles.length) return;
             const target = profiles[currentIndex];
-            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
 
-            bannedUsers.push({
-                name: target.name,
-                reason: "Заблоковано зі стрічки (Спам)",
-                img: target.img
-            });
-            renderAdminLists();
+            if (isFirebaseConnected && db && target.docId) {
+                db.collection('ez_users').doc(target.docId).update({
+                    isBanned: true,
+                    reason: "Заблоковано Адміном зі стрічки"
+                }).catch(e => console.warn(e));
+            } else {
+                bannedUsers.push({
+                    name: target.name,
+                    reason: "Заблоковано зі стрічки (Спам)",
+                    img: target.img
+                });
+                renderAdminLists();
+            }
             nextProfile(false, '');
-        }
-
-        function previewRegPhoto(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                uploadedPhotoDataUrl = e.target.result;
-                document.getElementById('reg-photo-preview').src = uploadedPhotoDataUrl;
-            };
-            reader.readAsDataURL(file);
         }
 
         function toggleTag(el) {
             el.classList.toggle('selected');
         }
 
-        function submitRegistration() {
+        async function submitRegistration() {
             const name = document.getElementById('reg-name').value.trim() || "Гравець";
             const age = document.getElementById('reg-age').value.trim() || "22";
             const city = document.getElementById('reg-city').value.trim() || "Україна";
@@ -1837,25 +1941,43 @@
             const chosenTags = Array.from(selectedTagEls).map(el => el.textContent);
             if (chosenTags.length === 0) chosenTags.push("♟️ Нова анкета");
 
-            profiles.splice(currentIndex, 0, {
-                id: "#VIP-NEW",
+            const newProfileData = {
+                id: "#" + String(currentUserId).slice(-4),
+                tgId: String(currentUserId),
                 isVip: true,
+                isBanned: false,
                 trustScore: 99,
                 trustLabel: "🛡️ 99% Верифіковано",
                 name: `${name}, ${age}`,
-                city: `${city} • щойно на сайті`,
+                city: `${city} • Онлайн`,
                 img: uploadedPhotoDataUrl,
                 tags: chosenTags,
                 question: question,
                 answer: `«${answer}»`,
                 icebreakers: [
-                    `Привіт, ${name}! Класна ідея з кавою та кіно ☕🎬`,
-                    `Який фільм переглянула останнім часом?`
-                ]
-            });
+                    `Привіт, ${name}! Класна відповідь в анкеті ✨`,
+                    `Зіграємо партію за чашкою кави у місті ${city}? ☕`
+                ],
+                createdAt: Date.now()
+            };
 
-            addVaultPoints(30);
+            const btn = document.getElementById('reg-submit-btn');
+            btn.textContent = "⏳ Збереження в хмару...";
+
+            // Одразу показуємо анкету локально + записуємо в Firebase
+            profiles.splice(currentIndex, 0, newProfileData);
             renderCard();
+
+            if (isFirebaseConnected && db) {
+                try {
+                    await db.collection('ez_users').doc(String(currentUserId)).set(newProfileData);
+                } catch (e) {
+                    console.warn("Помилка запису в Firestore (перевір Rules):", e);
+                }
+            }
+
+            btn.textContent = "♞ Зберегти анкету в Firebase (+30 💎)";
+            addVaultPoints(30);
             openTabDirectly('swipe');
         }
 
@@ -1936,9 +2058,9 @@
                             <img class="avatar-sm" src="${u.img}">
                             <div style="flex:1;">
                                 <h4 style="font-size:12px;">${u.name}</h4>
-                                <p style="font-size:10px; color:var(--muted);">${u.reason}</p>
+                                <p style="font-size:10px; color:var(--muted);">${u.reason || 'Заблоковано'}</p>
                             </div>
-                            <button class="btn-sm btn-ignore-bw" style="flex:0 0 auto; color:#fff;" onclick="unbanUser(${idx})">Розбанити</button>
+                            <button class="btn-sm btn-ignore-bw" style="flex:0 0 auto; color:#fff;" onclick="unbanUser(${idx}, '${u.docId || ''}')">Розбанити</button>
                         </div>
                     </div>
                 `).join('');
@@ -1946,8 +2068,13 @@
 
         function handleReport(id, isBan) {
             const item = reportsData.find(r => r.id === id);
+            if (isFirebaseConnected && db) {
+                db.collection('ez_reports').doc(id).delete().catch(e => console.warn(e));
+            }
             reportsData = reportsData.filter(r => r.id !== id);
-            if (isBan && item) bannedUsers.push({ name: item.name, reason: item.reason, img: item.img });
+            if (isBan && item) {
+                bannedUsers.push({ name: item.name, reason: item.reason, img: item.img });
+            }
             renderAdminLists();
         }
 
@@ -1958,9 +2085,13 @@
             renderAdminLists();
         }
 
-        function unbanUser(index) {
-            bannedUsers.splice(index, 1);
-            renderAdminLists();
+        function unbanUser(index, docId) {
+            if (isFirebaseConnected && db && docId) {
+                db.collection('ez_users').doc(docId).update({ isBanned: false }).catch(e => console.warn(e));
+            } else {
+                bannedUsers.splice(index, 1);
+                renderAdminLists();
+            }
         }
 
         function switchTab(tabName, btnEl) {
