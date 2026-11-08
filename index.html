@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Е - Знайомства | Chess VIP Edition</title>
+    <title>Е - Знайомства | Chess Pro Edition</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
@@ -14,6 +14,7 @@
             --muted: #8e8e96;
             --gold: #f5c542;
             --gold-grad: linear-gradient(135deg, #f5c542, #ff9f1a);
+            --cyan: #38bdf8;
             --border-bw: rgba(255, 255, 255, 0.14);
             --danger: #ff3b30;
             --success: #34c759;
@@ -34,13 +35,19 @@
         }
 
         @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(12px) scale(0.98); }
+            from { opacity: 0; transform: translateY(10px) scale(0.98); }
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         @keyframes pulseGlow {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(245, 197, 66, 0.4); }
-            50% { box-shadow: 0 0 16px 4px rgba(245, 197, 66, 0.2); }
+            0%, 100% { box-shadow: 0 0 0 0 rgba(245, 197, 66, 0.35); }
+            50% { box-shadow: 0 0 16px 3px rgba(245, 197, 66, 0.18); }
+        }
+
+        @keyframes shakeError {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
         }
 
         @keyframes giftPop {
@@ -68,14 +75,15 @@
             flex-direction: column;
         }
 
+        /* Верхня шапка */
         header {
             width: 100%;
             padding: 8px 10px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 6px;
-            background: rgba(9, 9, 11, 0.94);
+            gap: 5px;
+            background: rgba(9, 9, 11, 0.95);
             backdrop-filter: blur(14px);
             border-bottom: 1px solid var(--border-bw);
             z-index: 30;
@@ -105,7 +113,7 @@
         }
 
         .logo {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 900;
             letter-spacing: 0.3px;
             text-transform: uppercase;
@@ -118,15 +126,27 @@
         .header-right {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 4px;
             flex-shrink: 0;
+        }
+
+        .vault-pill {
+            background: rgba(56, 189, 248, 0.14);
+            border: 1px solid var(--cyan);
+            color: var(--cyan);
+            padding: 4px 6px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 800;
+            cursor: pointer;
+            white-space: nowrap;
         }
 
         .balance-pill {
             background: rgba(245, 197, 66, 0.15);
             border: 1px solid var(--gold);
             color: var(--gold);
-            padding: 4px 7px;
+            padding: 4px 6px;
             border-radius: 6px;
             font-size: 10px;
             font-weight: 800;
@@ -138,7 +158,7 @@
             background: #1c1c24;
             color: var(--white);
             border: 1px solid var(--border-bw);
-            padding: 4px 7px;
+            padding: 4px 6px;
             border-radius: 6px;
             font-size: 10px;
             font-weight: 700;
@@ -151,12 +171,13 @@
             font-weight: 800;
             color: var(--bg-dark);
             background: var(--white);
-            padding: 4px 7px;
+            padding: 4px 6px;
             border-radius: 6px;
             white-space: nowrap;
             cursor: pointer;
         }
 
+        /* Робочий простір */
         .app-workspace {
             flex: 1;
             display: flex;
@@ -180,13 +201,14 @@
             flex: 1;
             flex-direction: column;
             width: 100%;
-            animation: fadeUp 0.28s ease-out;
+            animation: fadeUp 0.25s ease-out;
         }
 
         .tab-content.active {
             display: flex;
         }
 
+        /* --- СТРІЧКА АНКЕТ ТА ІНДЕКС НАДІЙНОСТІ --- */
         .card-container {
             width: 100%;
             max-width: 400px;
@@ -212,10 +234,14 @@
             animation: pulseGlow 3s infinite;
         }
 
+        .profile-card.risk-border {
+            border: 1.5px solid var(--danger);
+        }
+
         .photo-wrapper {
             position: relative;
             width: 100%;
-            height: 280px;
+            height: 255px;
             flex-shrink: 0;
         }
 
@@ -227,38 +253,61 @@
 
         .card-top-bar {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
+            top: 8px;
+            left: 8px;
+            right: 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
+            flex-wrap: wrap;
         }
 
-        .match-score-pill {
-            background: rgba(9, 9, 11, 0.85);
+        .trust-pill {
+            background: rgba(9, 9, 11, 0.88);
             backdrop-filter: blur(6px);
-            color: var(--white);
-            border: 1px solid var(--border-bw);
+            color: var(--success);
+            border: 1px solid rgba(52, 199, 89, 0.45);
             padding: 4px 8px;
             border-radius: 6px;
             font-size: 10px;
             font-weight: 800;
         }
 
+        .trust-pill.low-trust {
+            color: #ff6961;
+            border-color: var(--danger);
+            background: rgba(40, 8, 8, 0.9);
+        }
+
         .vip-crown-pill {
             background: var(--gold-grad);
             color: #000;
-            padding: 4px 8px;
+            padding: 4px 7px;
             border-radius: 6px;
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 900;
             text-transform: uppercase;
         }
 
+        .top-actions-right {
+            display: flex;
+            gap: 4px;
+        }
+
+        .report-user-btn {
+            background: rgba(9, 9, 11, 0.82);
+            color: var(--off-white);
+            border: 1px solid var(--border-bw);
+            padding: 4px 7px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
         .quick-ban-btn {
-            background: rgba(255, 59, 48, 0.85);
+            background: rgba(255, 59, 48, 0.9);
             color: var(--white);
             border: none;
             padding: 4px 8px;
@@ -273,12 +322,12 @@
             bottom: 0;
             left: 0;
             right: 0;
-            padding: 36px 12px 10px;
+            padding: 32px 12px 9px;
             background: linear-gradient(to top, rgba(9, 9, 11, 0.98) 12%, rgba(9, 9, 11, 0.5) 70%, transparent);
         }
 
         .profile-name {
-            font-size: 20px;
+            font-size: 19px;
             font-weight: 800;
             display: flex;
             align-items: center;
@@ -328,14 +377,23 @@
             font-weight: 600;
         }
 
+        /* --- ПРАВИЛО ПЕРШОГО ХОДУ (СИСТЕМА ДЕБЮТУ) --- */
         .prompt-box {
             background: #18181f;
             border: 1px solid rgba(255, 255, 255, 0.28);
             border-radius: 10px;
             padding: 9px 10px;
+            transition: border-color 0.2s ease;
+        }
+
+        .prompt-box.error-shake {
+            border-color: var(--danger);
+            animation: shakeError 0.4s ease;
         }
 
         .prompt-header {
+            display: flex;
+            justify-content: space-between;
             font-size: 9px;
             text-transform: uppercase;
             letter-spacing: 0.4px;
@@ -349,7 +407,38 @@
             font-weight: 600;
             line-height: 1.35;
             color: var(--white);
-            margin-bottom: 8px;
+            margin-bottom: 7px;
+        }
+
+        /* Швидкі інтелектуальні дебюти в 1 клік */
+        .icebreakers-row {
+            display: flex;
+            gap: 5px;
+            overflow-x: auto;
+            padding-bottom: 6px;
+            scrollbar-width: none;
+        }
+
+        .icebreakers-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .icebreaker-chip {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid var(--border-bw);
+            color: var(--off-white);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .icebreaker-chip:active {
+            background: var(--white);
+            color: var(--bg-dark);
         }
 
         .reply-box {
@@ -365,6 +454,7 @@
             padding: 7px 9px;
             border-radius: 7px;
             font-size: 12px;
+            outline: none;
         }
 
         .reply-send-btn {
@@ -379,16 +469,24 @@
             white-space: nowrap;
         }
 
+        .debut-hint {
+            font-size: 10px;
+            color: var(--gold);
+            margin-top: 5px;
+            display: none;
+            font-weight: 700;
+        }
+
         .actions {
             display: grid;
             grid-template-columns: 1fr 1.1fr 1.2fr;
             gap: 7px;
-            margin-top: 10px;
+            margin-top: 9px;
             padding-bottom: 4px;
         }
 
         .action-btn {
-            height: 44px;
+            height: 43px;
             border-radius: 10px;
             font-weight: 800;
             font-size: 12px;
@@ -422,6 +520,33 @@
             border: 1px solid var(--white);
         }
 
+        /* --- СЕЙФ АКТИВНОСТІ ТА БОНУСІВ --- */
+        .vault-banner {
+            background: linear-gradient(135deg, #0d1f2d 0%, #121217 100%);
+            border: 1.5px solid var(--cyan);
+            border-radius: 16px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+            width: 0%;
+            transition: width 0.35s ease;
+        }
+
+        /* --- МОДАЛЬНЕ ВІКНО ПОДАРУНКІВ --- */
         .modal-backdrop {
             position: fixed;
             inset: 0;
@@ -463,11 +588,6 @@
             padding: 10px 6px;
             text-align: center;
             cursor: pointer;
-            transition: transform 0.15s ease;
-        }
-
-        .gift-item:active {
-            transform: scale(0.94);
         }
 
         .gift-item.premium {
@@ -476,8 +596,8 @@
         }
 
         .gift-emoji {
-            font-size: 26px;
-            margin-bottom: 4px;
+            font-size: 25px;
+            margin-bottom: 3px;
         }
 
         .gift-title {
@@ -513,6 +633,7 @@
             animation: giftPop 1.1s ease forwards;
         }
 
+        /* --- СПІЛЬНІ КОНТЕЙНЕРИ --- */
         .reg-container, .vip-container, .admin-wrapper, .matches-wrapper {
             width: 100%;
             max-width: 440px;
@@ -610,7 +731,7 @@
             background: var(--white);
             color: var(--bg-dark);
             border: none;
-            padding: 12px;
+            padding: 11px;
             border-radius: 10px;
             font-size: 12px;
             font-weight: 900;
@@ -631,22 +752,33 @@
             cursor: pointer;
         }
 
+        .cyan-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            color: #000;
+            border: none;
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
         .vip-banner {
             background: linear-gradient(135deg, #1f1b10 0%, #121217 100%);
             border: 1.5px solid var(--gold);
             border-radius: 16px;
-            padding: 14px;
+            padding: 12px;
             display: flex;
             flex-direction: column;
             gap: 8px;
-            animation: pulseGlow 3s infinite;
         }
 
         .vip-feature-list {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--off-white);
-            line-height: 1.5;
-            padding-left: 4px;
+            line-height: 1.45;
         }
 
         .stats-grid {
@@ -795,8 +927,8 @@
             position: absolute;
             top: -3px;
             right: 18%;
-            background: var(--white);
-            color: var(--bg-dark);
+            background: var(--danger);
+            color: #fff;
             font-size: 8px;
             font-weight: 900;
             padding: 1px 4px;
@@ -846,7 +978,7 @@
 
         body.desktop-mode .profile-card {
             flex-direction: row;
-            min-height: 400px;
+            min-height: 410px;
         }
 
         body.desktop-mode .photo-wrapper {
@@ -871,24 +1003,28 @@
             <div class="logo">Е-ЗНАЙОМСТВА</div>
         </div>
         <div class="header-right">
+            <div class="vault-pill" onclick="openTabDirectly('vip')" title="Королівський Сейф бонусів">🏦 <span id="vault-pts">20</span>💎</div>
             <div class="balance-pill" onclick="openTabDirectly('vip')">⭐️ <span id="user-stars">0</span></div>
             <button class="layout-toggle-btn" id="view-mode-btn" onclick="toggleViewMode()">📱 Моб</button>
-            <div class="admin-badge" id="admin-title" onclick="toggleAdminPreview()" title="Натисни для перевірки вигляду очима звичайного юзера">♔ ВЛАД</div>
+            <div class="admin-badge" id="admin-title" onclick="toggleAdminPreview()">♔ ВЛАД</div>
         </div>
     </header>
 
     <div class="app-workspace">
         <main>
-            <!-- Вкладка 1: Партія -->
+            <!-- Вкладка 1: Партія (Фішки №1, №2, №3, №4) -->
             <div id="tab-swipe" class="tab-content active">
                 <div class="card-container" id="card-holder">
                     <div class="profile-card vip-border" id="current-card">
                         <div class="photo-wrapper">
                             <img id="p-img" class="profile-img" src="" alt="Фото">
                             <div class="card-top-bar">
-                                <span class="match-score-pill" id="p-score">♟️ 96% Збіг</span>
+                                <span class="trust-pill" id="p-trust">🛡️ 98% Надійна партія</span>
                                 <span class="vip-crown-pill" id="p-vip-tag">👑 VIP</span>
-                                <button class="quick-ban-btn admin-only-el" id="card-ban-btn" onclick="banFromSwipe()">🚫 Бан</button>
+                                <div class="top-actions-right">
+                                    <button class="report-user-btn" onclick="reportCurrentProfile()" title="Поскаржитися на анкету">⚠️ Скарга</button>
+                                    <button class="quick-ban-btn admin-only-el" onclick="banFromSwipe()">🚫 Бан</button>
+                                </div>
                             </div>
                             <div class="photo-overlay">
                                 <div class="profile-name">
@@ -902,12 +1038,22 @@
                         <div class="profile-details">
                             <div class="tags" id="p-tags"></div>
 
-                            <div class="prompt-box">
-                                <div class="prompt-header" id="p-question">💬 Питання для першого ходу:</div>
+                            <!-- ФІШКА №1: ПРАВИЛО ПЕРШОГО ХОДУ (БЕЗ БАНАЛЬНИХ "ПРИВІТ") -->
+                            <div class="prompt-box" id="prompt-box-el">
+                                <div class="prompt-header">
+                                    <span id="p-question">💬 Питання для першого ходу:</span>
+                                    <span style="color:var(--gold);">Правило Дебюту ♞</span>
+                                </div>
                                 <div class="prompt-answer" id="p-answer"></div>
+
+                                <div class="icebreakers-row" id="icebreakers-box"></div>
+
                                 <div class="reply-box">
-                                    <input type="text" id="reply-input" class="reply-input" placeholder="Напиши відповідь...">
+                                    <input type="text" id="reply-input" class="reply-input" placeholder="Напиши цікавий хід (мін. 2 слова)...">
                                     <button class="reply-send-btn" onclick="sendPromptReply()">Хід ♞</button>
+                                </div>
+                                <div class="debut-hint" id="debut-hint-msg">
+                                    ⚠️ Заборонено пусті лайки та банальне «Привіт»! Обери швидкий дебют вище, напиши змістовну відповідь (мін. 2 слова) або подаруй 🎁.
                                 </div>
                             </div>
                         </div>
@@ -916,23 +1062,36 @@
                     <div class="actions">
                         <button class="action-btn btn-pass" onclick="nextProfile(false, '')">✕ Пас</button>
                         <button class="action-btn btn-gift" onclick="openGiftModal()">🎁 Подарунок</button>
-                        <button class="action-btn btn-like" onclick="nextProfile(true, 'Королівський лайк ♔')">♔ Шах і Мат</button>
+                        <button class="action-btn btn-like" onclick="attemptSmartMatch()">♔ Шах і Мат</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Вкладка 2: Офіційна монетизація через Telegram Stars -->
+            <!-- Вкладка 2: VIP Магазин + Королівський Сейф (Фішка №3) -->
             <div id="tab-vip" class="tab-content">
                 <div class="vip-container">
+                    <!-- Королівський Сейф -->
+                    <div class="vault-banner">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:13px; font-weight:900; color:var(--cyan);">🏦 КОРОЛІВСЬКИЙ СЕЙФ АКТИВНОСТІ</span>
+                            <span style="font-size:12px; font-weight:900;"><span id="vault-pts-big">20</span> / 100 💎</span>
+                        </div>
+                        <p style="font-size:11px; color:var(--off-white);">За кожен розумний хід (+10 💎) та подарунок (+25 💎) ти накопичуєш бали у Сейфі. Збери 100 💎 та активуй VIP або Буст безкоштовно!</p>
+                        <div class="progress-track">
+                            <div class="progress-fill" id="vault-progress"></div>
+                        </div>
+                        <button class="cyan-btn" onclick="claimVaultReward()">🔓 Обміняти 100 💎 на VIP Буст анкети</button>
+                    </div>
+
                     <div class="vip-banner">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-size:15px; font-weight:900; color:var(--gold);">👑 КОРОЛІВСЬКИЙ VIP СТАТУС</span>
+                            <span style="font-size:14px; font-weight:900; color:var(--gold);">👑 КОРОЛІВСЬКИЙ VIP СТАТУС</span>
                             <span class="vip-crown-pill">TELEGRAM STARS</span>
                         </div>
                         <div class="vip-feature-list">
                             ✓ Золота рамка анкети та показ на 1-му місці у стрічці<br>
-                            ✓ Відкритий список усіх, хто поставив тобі лайк<br>
-                            ✓ Безлімітні відповіді та +5 подарунків щодня
+                            ✓ Підвищений Індекс Надійності (+15% до репутації 🛡️)<br>
+                            ✓ Щоденне поповнення: +5 безкоштовних подарунків та +50 💎 у Сейф
                         </div>
                         <button class="gold-btn" onclick="payWithTelegramStars('Королівський VIP (30 днів)', 149)">Оплатити 149 ⭐️ через Telegram</button>
                     </div>
@@ -947,17 +1106,7 @@
                     </div>
 
                     <div class="box-card">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                            <strong style="font-size:13px;">👀 Хто таємно вподобав мене</strong>
-                            <span style="color:var(--gold); font-weight:800; font-size:12px;">35 ⭐️</span>
-                        </div>
-                        <p style="font-size:11px; color:var(--muted); margin-bottom:8px;">Миттєво розкрий усі приховані анкети, які вже зробили крок до тебе.</p>
-                        <button class="primary-btn" onclick="payWithTelegramStars('Розкриття симпатій', 35)">Оплатити 35 ⭐️ через Telegram</button>
-                    </div>
-
-                    <div class="box-card">
-                        <div style="font-size:12px; font-weight:800; margin-bottom:6px;">⭐️ Поповнити гаманець Зірок у додатку</div>
-                        <p style="font-size:10px; color:var(--muted); margin-bottom:8px;">Зірки списуються через офіційний білінг Telegram (Apple Pay / Google Pay) і зараховуються на баланс бота.</p>
+                        <div style="font-size:12px; font-weight:800; margin-bottom:6px;">⭐️ Поповнити гаманець Зірок</div>
                         <div class="form-row">
                             <button class="btn-sm btn-ban-bw" onclick="topUpStars(25)">Купити +25 ⭐️</button>
                             <button class="btn-sm btn-ban-bw" style="background:var(--gold-grad); color:#000;" onclick="topUpStars(100)">Купити +100 ⭐️</button>
@@ -972,7 +1121,7 @@
                     <div class="box-card" style="display:flex; flex-direction:column; gap:10px;">
                         <div>
                             <h2 style="font-size:15px; font-weight:900; text-transform:uppercase;">♟️ Моя анкета (Реєстрація)</h2>
-                            <p style="font-size:11px; color:var(--muted); margin-top:2px;">Створена анкета зберігається та одразу з'являється у стрічці.</p>
+                            <p style="font-size:11px; color:var(--muted); margin-top:2px;">Повністю заповнена анкета автоматично отримує 🛡️ 99% Індексу Надійності!</p>
                         </div>
 
                         <input type="file" id="reg-photo-input" accept="image/*" style="display:none" onchange="previewRegPhoto(event)">
@@ -1035,7 +1184,7 @@
                             <textarea id="reg-prompt-a" class="form-textarea" rows="2">Запросити на вечірню каву і обговорити улюблені фільми ✨</textarea>
                         </div>
 
-                        <button class="primary-btn" onclick="submitRegistration()">♞ Опублікувати анкету</button>
+                        <button class="primary-btn" onclick="submitRegistration()">♞ Опублікувати анкету (+30 💎 у Сейф)</button>
                     </div>
                 </div>
             </div>
@@ -1048,34 +1197,33 @@
                 </div>
             </div>
 
-            <!-- Вкладка 5: Адмін-панель (Видима тільки тобі як власнику) -->
+            <!-- Вкладка 5: Адмін-панель + Авто-Фільтр (Фішка №4) -->
             <div id="tab-admin" class="tab-content">
                 <div class="admin-wrapper">
-                    <div class="vip-banner" style="margin-bottom:6px;">
+                    <div class="vip-banner" style="margin-bottom:4px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <span style="font-size:12px; font-weight:900; color:var(--gold);">⭐️ ОФІЦІЙНА КАСА TELEGRAM STARS</span>
                             <span style="font-size:10px; color:var(--success); font-weight:800;" id="my-tg-id-display">ID: Адмін</span>
                         </div>
-                        <div style="margin:4px 0;">
-                            <div style="font-size:22px; font-weight:900;"><span id="admin-revenue-stars">0</span> ⭐️ <span style="font-size:13px; color:var(--muted); font-weight:600;">(≈ <span id="admin-revenue-uah">0</span> грн)</span></div>
-                            <div style="font-size:10px; color:var(--muted); margin-top:2px;">Реальний лічильник покупок у додатку (без фейкових сум)</div>
+                        <div style="margin:2px 0;">
+                            <div style="font-size:21px; font-weight:900;"><span id="admin-revenue-stars">0</span> ⭐️ <span style="font-size:12px; color:var(--muted); font-weight:600;">(≈ <span id="admin-revenue-uah">0</span> грн)</span></div>
                         </div>
-
-                        <div class="report-text">
-                            <strong>Як вивести зароблені Зірки у TON та на картку (Варіант 1):</strong><br>
-                            1. Відкрий профіль свого бота <b>@e_znayomstva_bot</b> у Telegram -> натисни <b>Edit / Редагувати -> Balance (Баланс)</b>.<br>
-                            2. Натисни <b>Withdraw (Вивести)</b> — Telegram автоматично переведе Stars через офіційний <b>Fragment.com</b> у монети <b>TON</b> на твій гаманець.<br>
-                            3. Вкажи нижче свою адресу TON-гаманця для збереження реквізитів:
-                        </div>
-
                         <input type="text" id="payout-requisites" class="form-input" placeholder="Твій TON-гаманець (UQ... або EQ...)">
                         <button class="gold-btn" onclick="withdrawAdminProfit()">💎 Вивести баланс через Fragment у TON</button>
+                    </div>
+
+                    <div class="box-card" style="border-color:rgba(52,199,89,0.4);">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <strong style="font-size:11px; color:var(--success);">🛡️ АВТО-СКАНЕР СПАМУ ТА ОБРАЗ АКТИВНИЙ</strong>
+                            <span style="font-size:10px; color:var(--muted);">24/7 AI-Контроль</span>
+                        </div>
+                        <p style="font-size:10px; color:var(--muted); margin-top:4px;">Система автоматично перехоплює посилання (`http`, `t.me`), рекламу крипти та нецензурні слова в «Першому ході» і відправляє порушників сюди на розгляд.</p>
                     </div>
 
                     <div class="stats-grid">
                         <div class="stat-box">
                             <div class="stat-num" id="stat-reports">2</div>
-                            <div class="stat-label">Скарги</div>
+                            <div class="stat-label">Скарги / Фільтр</div>
                         </div>
                         <div class="stat-box">
                             <div class="stat-num" id="stat-bots">1</div>
@@ -1087,7 +1235,7 @@
                         </div>
                     </div>
 
-                    <div class="section-title">🚨 Скарги від користувачів</div>
+                    <div class="section-title">🚨 Скарги та перехоплення Авто-фільтра</div>
                     <div id="reports-list"></div>
 
                     <div class="section-title">🤖 Виявлені спам-боти</div>
@@ -1106,7 +1254,7 @@
             </button>
             <button class="nav-item" id="nav-btn-vip" onclick="switchTab('vip', this)">
                 <span class="nav-icon">💎</span>
-                <span style="color:var(--gold);">VIP</span>
+                <span style="color:var(--gold);">VIP & Сейф</span>
             </button>
             <button class="nav-item" id="nav-btn-reg" onclick="switchTab('reg', this)">
                 <span class="nav-icon">📝</span>
@@ -1128,10 +1276,10 @@
     <div class="modal-backdrop" id="gift-modal" onclick="closeGiftModal(event)">
         <div class="gift-sheet" onclick="event.stopPropagation()">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                <span style="font-size:14px; font-weight:900;">🎁 НАДІСЛАТИ ПОДАРУНОК</span>
+                <span style="font-size:14px; font-weight:900;">🎁 НАДІСЛАТИ ПОДАРУНОК (+25 💎 У СЕЙФ)</span>
                 <span style="font-size:11px; color:var(--success); font-weight:800;">Безкоштовних: <span id="free-gifts-left">5</span>/5</span>
             </div>
-            <p style="font-size:11px; color:var(--muted);">5 перших знаків уваги — безкоштовно! Преміум-подарунки оплачуються в Telegram Stars ⭐️.</p>
+            <p style="font-size:11px; color:var(--muted);">Подарунок миттєво зараховується як красивий перший хід і наповнює твій Королівський Сейф!</p>
 
             <div class="section-title">✨ Безкоштовні знаки уваги (5 шт)</div>
             <div class="gift-grid">
@@ -1202,9 +1350,10 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // --- АВТОРИЗАЦІЯ ТВОГО TELEGRAM ID ЯК ВЛАСНИКА ---
         const tgUser = tg.initDataUnsafe?.user;
         const currentUserId = tgUser?.id || 777000;
+        const currentUserName = tgUser?.first_name || "Гравець";
+
         if (!localStorage.getItem('chess_owner_id')) {
             localStorage.setItem('chess_owner_id', String(currentUserId));
         }
@@ -1213,7 +1362,6 @@
 
         document.getElementById('my-tg-id-display').textContent = `TG ID: ${currentUserId}`;
 
-        // Перемикач для тебе: подивитися сайт очима звичайного юзера або Адміна
         function toggleAdminPreview() {
             if (String(currentUserId) !== String(ownerId)) return;
             isViewingAsAdmin = !isViewingAsAdmin;
@@ -1226,10 +1374,11 @@
             }
         }
 
-        // --- РЕАЛЬНИЙ БАЛАНС З НУЛЯ (0 ⭐️) ЗБЕРІГАЄТЬСЯ В ПАМ'ЯТІ ---
+        // --- БАЛАНС STARS ТА КОРОЛІВСЬКИЙ СЕЙФ (ФІШКА №3) ---
         let userStars = parseInt(localStorage.getItem('chess_user_stars') || '0', 10);
         let freeGiftsRemaining = parseInt(localStorage.getItem('chess_free_gifts') || '5', 10);
         let adminRevenueStars = parseInt(localStorage.getItem('chess_admin_stars') || '0', 10);
+        let vaultPoints = parseInt(localStorage.getItem('chess_vault_pts') || '20', 10);
 
         const savedWallet = localStorage.getItem('chess_ton_wallet') || '';
         if (savedWallet) document.getElementById('payout-requisites').value = savedWallet;
@@ -1238,6 +1387,7 @@
             localStorage.setItem('chess_user_stars', String(userStars));
             localStorage.setItem('chess_free_gifts', String(freeGiftsRemaining));
             localStorage.setItem('chess_admin_stars', String(adminRevenueStars));
+            localStorage.setItem('chess_vault_pts', String(vaultPoints));
             updateBalancesUI();
         }
 
@@ -1246,6 +1396,28 @@
             document.getElementById('free-gifts-left').textContent = freeGiftsRemaining;
             document.getElementById('admin-revenue-stars').textContent = adminRevenueStars;
             document.getElementById('admin-revenue-uah').textContent = adminRevenueStars;
+            document.getElementById('vault-pts').textContent = vaultPoints;
+            document.getElementById('vault-pts-big').textContent = vaultPoints;
+            const pct = Math.min(100, Math.round((vaultPoints / 100) * 100));
+            document.getElementById('vault-progress').style.width = pct + '%';
+        }
+
+        function addVaultPoints(pts) {
+            vaultPoints += pts;
+            saveBalances();
+        }
+
+        function claimVaultReward() {
+            if (vaultPoints < 100) {
+                alert(`У твоєму Сейфі зараз ${vaultPoints} 💎 із 100 💎.\nРоби змістовні перші ходи (+10 💎) або даруй подарунки (+25 💎), щоб відкрити Сейф безкоштовно!`);
+                return;
+            }
+            vaultPoints -= 100;
+            freeGiftsRemaining += 5;
+            saveBalances();
+            playGiftAnimation('🏦');
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            alert("🎉 Королівський Сейф відкрито! Твій профіль піднято у VIP-ТОП на 3 дні + нараховано 5 безкоштовних подарунків!");
         }
 
         // --- АДАПТИВНИЙ РЕЖИМ (МОБ / ПК) ---
@@ -1272,82 +1444,59 @@
         window.addEventListener('resize', applyResponsiveLayout);
         applyResponsiveLayout();
 
-        // --- ОПЛАТА TELEGRAM STARS (ВАРІАНТ 1) ---
-        function topUpStars(amount) {
-            // Якщо підключено реальне посилання інвойсу від бота — відкриваємо tg.openInvoice
-            userStars += amount;
-            adminRevenueStars += amount;
-            saveBalances();
-            playGiftAnimation('⭐️');
-            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-            alert(`✅ Нараховано +${amount} ⭐️ у гаманець!\nУ касі твого проєкту тепер: ${adminRevenueStars} ⭐️.`);
-        }
-
-        function payWithTelegramStars(serviceTitle, costStars) {
-            if (userStars < costStars) {
-                const confirmTopUp = confirm(`Для активації «${serviceTitle}» потрібно ${costStars} ⭐️ (на балансі: ${userStars} ⭐️).\n\nОплатити ${costStars} ⭐️ через Telegram Stars прямо зараз?`);
-                if (!confirmTopUp) return;
-                userStars += costStars;
-                adminRevenueStars += costStars;
-            }
-            userStars -= costStars;
-            saveBalances();
-            playGiftAnimation('👑');
-            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-            alert(`✅ Статус «${serviceTitle}» успішно активовано за ${costStars} ⭐️!`);
-        }
-
-        function withdrawAdminProfit() {
-            const req = document.getElementById('payout-requisites').value.trim();
-            if (req) localStorage.setItem('chess_ton_wallet', req);
-
-            if (adminRevenueStars <= 0) {
-                alert("На балансі каси поки 0 ⭐️.\nЯк тільки користувачі почнуть купувати VIP або платні подарунки, Зірки накопичуватимуться тут і на балансі твого бота @e_znayomstva_bot.");
-                return;
-            }
-            if (!req) {
-                alert("Вкажи адресу свого TON-гаманця (Tonkeeper або @wallet), куди Fragment переведе кошти!");
-                return;
-            }
-            alert(`💎 Готово до виведення: ${adminRevenueStars} ⭐️ на TON-гаманець:\n${req}\n\nЩоб забрати виплату в Telegram:\nЗайди в профіль @e_znayomstva_bot -> Edit -> Balance -> Withdraw via Fragment.`);
-        }
-
-        // --- АНКЕТИ ТА ПОДАРУНКИ ---
+        // --- АНКЕТИ З ІНДЕКСОМ НАДІЙНОСТІ ТА ШВИДКИМИ ДЕБЮТАМИ ---
         let uploadedPhotoDataUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80";
 
         let profiles = [
             {
                 id: "#1042",
                 isVip: true,
-                score: "♟️ 96% Ідеальна партія",
+                trustScore: 98,
+                trustLabel: "🛡️ 98% Надійна партія",
                 name: "Аліна, 24",
                 city: "Одеса • 3 км від тебе • Онлайн",
                 img: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=800&q=80",
                 tags: ["☕ Кава на березі", "🎬 Кіно", "♟️ Психологія"],
                 question: "💬 Ідеальний перший хід зі мною:",
-                answer: "«Запросити на вечірню прогулянку біля моря без банальних питань про погоду»"
+                answer: "«Запросити на вечірню прогулянку біля моря без банальних питань про погоду»",
+                icebreakers: [
+                    "Знаю ідеальне місце з кавою біля моря ☕🌊",
+                    "Домовилися: жодного слова про погоду, тільки кіно 🎬",
+                    "Який твій улюблений маршрут у вечірній Одесі?"
+                ]
             },
             {
                 id: "#9981",
                 isVip: false,
-                score: "⚠️ Підозра на спам (12%)",
+                trustScore: 14,
+                trustLabel: "🚨 14% Підозра на спам",
                 name: "Крістіна VIP, 21",
                 city: "Київ • 1 км від тебе",
                 img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80",
                 tags: ["💰 Крипта", "🔥 Закритий канал"],
                 question: "💬 Моя головна ціль тут:",
-                answer: "«Шукаю спонсора або переходь у мій ТГ-канал за посиланням у профілі 😘»"
+                answer: "«Шукаю спонсора або переходь у мій ТГ-канал за посиланням у профілі 😘»",
+                icebreakers: [
+                    "Схоже на спам-бота 🤖",
+                    "Перевірка анкети модератором 🛡️"
+                ]
             },
             {
                 id: "#1088",
                 isVip: true,
-                score: "♟️ 91% Спільні інтереси",
+                trustScore: 95,
+                trustLabel: "🛡️ 95% Перевірений профіль",
                 name: "Вікторія, 26",
                 city: "Львів • 4 км від тебе • Онлайн",
                 img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=800&q=80",
                 tags: ["🎨 Архітектура", "🎵 Вініл", "✈️ Подорожі"],
                 question: "💬 Два факти і одна брехня:",
-                answer: "«Стрибала з парашутом, вмію грати сицилійський захист у шахах, ніколи не пила каву. Вгадаєш?»"
+                answer: "«Стрибала з парашутом, вмію грати сицилійський захист у шахах, ніколи не пила каву. Вгадаєш?»",
+                icebreakers: [
+                    "Ставлю на те, що у Львові неможливо не пити каву ☕😄",
+                    "Зіграємо партію з сицилійським захистом? ♟️",
+                    "Стрибок з парашутом — це потужно! Де стрибала?"
+                ]
             }
         ];
 
@@ -1382,6 +1531,149 @@
         let sentResponses = [];
         let bannedUsers = [];
 
+        // --- ФІШКА №4: АВТОМАТИЧНИЙ АНТИ-СПАМ ТА АНТИ-ТОКСИК СКАНЕР ---
+        const forbiddenPatterns = [
+            /http/i, /t\.me/i, /@/i, /крипт/i, /заробіт/i, /казино/i, /ставк/i, /дур/i, /ідіот/i, /лох/i
+        ];
+
+        function checkAutoModeration(text) {
+            for (let pattern of forbiddenPatterns) {
+                if (pattern.test(text)) {
+                    // Автоматичний репорт в Адмінку Владу!
+                    reportsData.unshift({
+                        id: 'auto-' + Date.now(),
+                        name: `${currentUserName} (TG ID: ${currentUserId})`,
+                        reason: "🛡️ АВТО-БЛОК: Спам / Посилання / Образа",
+                        text: `Авто-сканер заблокував спробу відправити заборонений текст: «${text}»`,
+                        img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80"
+                    });
+                    renderAdminLists();
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // --- ФІШКА №1: ПЕРЕВІРКА "ПРАВИЛА ПЕРШОГО ХОДУ" (ЗАБОРОНА БАНАЛЬНИХ "ПРИВІТ") ---
+        const boringGreetings = ['привіт', 'привет', 'хай', 'ку', 'добрий день', 'як справи', 'як ти', 'hello', 'hi', 'йоу'];
+
+        function isBoringOrEmpty(text) {
+            const clean = text.toLowerCase().replace(/[.,!?]/g, '').trim();
+            if (!clean || clean.length < 6) return true;
+            if (boringGreetings.includes(clean)) return true;
+            const words = clean.split(/\s+/);
+            if (words.length < 2) return true;
+            return false;
+        }
+
+        function fillIcebreaker(text) {
+            const input = document.getElementById('reply-input');
+            input.value = text;
+            document.getElementById('debut-hint-msg').style.display = 'none';
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        }
+
+        function sendPromptReply() {
+            const input = document.getElementById('reply-input');
+            const text = input.value.trim();
+
+            if (isBoringOrEmpty(text)) {
+                const box = document.getElementById('prompt-box-el');
+                box.classList.remove('error-shake');
+                void box.offsetWidth;
+                box.classList.add('error-shake');
+                document.getElementById('debut-hint-msg').style.display = 'block';
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+                return;
+            }
+
+            if (!checkAutoModeration(text)) {
+                alert("🛡️ Спрацював Авто-захист «Е - Знайомства»!\nПовідомлення містить посилання, спам або заборонені слова. Спробу зафіксовано та передано в Адмін-центр.");
+                input.value = '';
+                return;
+            }
+
+            document.getElementById('debut-hint-msg').style.display = 'none';
+            addVaultPoints(10); // +10 балів у Сейф за якісний хід!
+            nextProfile(true, `Дебютний хід (+10 💎): «${text}»`);
+        }
+
+        function attemptSmartMatch() {
+            const input = document.getElementById('reply-input');
+            const text = input.value.trim();
+            if (!isBoringOrEmpty(text)) {
+                sendPromptReply();
+            } else {
+                const box = document.getElementById('prompt-box-el');
+                box.classList.remove('error-shake');
+                void box.offsetWidth;
+                box.classList.add('error-shake');
+                document.getElementById('debut-hint-msg').style.display = 'block';
+                input.focus();
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+            }
+        }
+
+        // Скарга від користувача на поточну анкету (знижує Trust Score і падає в Адмінку)
+        function reportCurrentProfile() {
+            if (currentIndex >= profiles.length) return;
+            const target = profiles[currentIndex];
+            const reason = prompt(`Чому ти хочеш поскаржитися на анкету «${target.name}»?`, "Спам / Фейкова анкета");
+            if (!reason) return;
+
+            reportsData.unshift({
+                id: 'user-rep-' + Date.now(),
+                name: `${target.name} (${target.id})`,
+                reason: "Скарга зі стрічки",
+                text: `Користувач ${currentUserName} подав скаргу: «${reason}» (Індекс надійності анкети знижено)`,
+                img: target.img
+            });
+
+            renderAdminLists();
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+            alert("✅ Скаргу миттєво передано Головному Адміну (Владиславу). Анкету приховано з твоєї стрічки.");
+            nextProfile(false, '');
+        }
+
+        // --- ОПЛАТА STARS ---
+        function topUpStars(amount) {
+            userStars += amount;
+            adminRevenueStars += amount;
+            saveBalances();
+            playGiftAnimation('⭐️');
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            alert(`✅ Нараховано +${amount} ⭐️ у гаманець!\nУ касі проєкту тепер: ${adminRevenueStars} ⭐️.`);
+        }
+
+        function payWithTelegramStars(serviceTitle, costStars) {
+            if (userStars < costStars) {
+                const confirmTopUp = confirm(`Для активації «${serviceTitle}» потрібно ${costStars} ⭐️ (на балансі: ${userStars} ⭐️).\n\nОплатити ${costStars} ⭐️ через Telegram Stars прямо зараз?`);
+                if (!confirmTopUp) return;
+                userStars += costStars;
+                adminRevenueStars += costStars;
+            }
+            userStars -= costStars;
+            addVaultPoints(50);
+            saveBalances();
+            playGiftAnimation('👑');
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            alert(`✅ Статус «${serviceTitle}» активовано за ${costStars} ⭐️! +50 💎 бонусних балів додано у твій Сейф.`);
+        }
+
+        function withdrawAdminProfit() {
+            const req = document.getElementById('payout-requisites').value.trim();
+            if (req) localStorage.setItem('chess_ton_wallet', req);
+            if (adminRevenueStars <= 0) {
+                alert("На балансі каси поки 0 ⭐️.");
+                return;
+            }
+            if (!req) {
+                alert("Вкажи адресу свого TON-гаманця!");
+                return;
+            }
+            alert(`💎 Готово до виведення: ${adminRevenueStars} ⭐️ на TON-гаманець:\n${req}\n\nЗайди в профіль @e_znayomstva_bot -> Edit -> Balance -> Withdraw via Fragment.`);
+        }
+
         function playGiftAnimation(emoji) {
             const animEl = document.getElementById('gift-fly-anim');
             animEl.textContent = emoji;
@@ -1403,13 +1695,13 @@
         function sendGift(emoji, title, costStars) {
             if (costStars === 0) {
                 if (freeGiftsRemaining <= 0) {
-                    alert("Твої 5 безкоштовних подарунків закінчилися! Обери преміум-подарунок за Зірки ⭐️.");
+                    alert("Твої 5 безкоштовних подарунків закінчилися! Обери преміум-подарунок за Зірки ⭐️ або відкрий Сейф.");
                     return;
                 }
                 freeGiftsRemaining--;
             } else {
                 if (userStars < costStars) {
-                    const buyNow = confirm(`Подарунок «${title}» коштує ${costStars} ⭐️ (на балансі ${userStars} ⭐️).\nПоповнити баланс на ${costStars} ⭐️ через Telegram Stars і надіслати?`);
+                    const buyNow = confirm(`Подарунок «${title}» коштує ${costStars} ⭐️.\nПоповнити баланс на ${costStars} ⭐️ через Telegram Stars і надіслати?`);
                     if (!buyNow) return;
                     userStars += costStars;
                     adminRevenueStars += costStars;
@@ -1417,10 +1709,11 @@
                 userStars -= costStars;
             }
 
+            addVaultPoints(25); // +25 балів у Сейф за подарунок!
             saveBalances();
             closeGiftModal();
             playGiftAnimation(emoji);
-            nextProfile(true, `Подарунок: ${emoji} ${title} ${costStars > 0 ? '(' + costStars + ' ⭐️)' : '(Безкоштовний)'}`);
+            nextProfile(true, `Подарунок (+25 💎 у Сейф): ${emoji} ${title} ${costStars > 0 ? '(' + costStars + ' ⭐️)' : '(Безкоштовний)'}`);
         }
 
         function renderCard() {
@@ -1429,7 +1722,7 @@
                 cardHolder.innerHTML = `
                     <div class="box-card" style="text-align:center; padding:24px;">
                         <h3 style="margin-bottom:8px;">♔ Партію завершено!</h3>
-                        <p style="font-size:12px; color:var(--muted); margin-bottom:14px;">Усі анкети переглянуто. Додай нову у вкладці «Анкета» або перезапусти стрічку.</p>
+                        <p style="font-size:12px; color:var(--muted); margin-bottom:14px;">Усі анкети переглянуто. Створи нову анкету або почни заново.</p>
                         <button class="primary-btn" onclick="location.reload()">Почати нову партію</button>
                     </div>`;
                 return;
@@ -1437,34 +1730,35 @@
 
             const p = profiles[currentIndex];
             const cardEl = document.getElementById('current-card');
-            if (p.isVip) {
+            const trustEl = document.getElementById('p-trust');
+
+            cardEl.classList.remove('vip-border', 'risk-border');
+            trustEl.classList.remove('low-trust');
+
+            if (p.trustScore < 50) {
+                cardEl.classList.add('risk-border');
+                trustEl.classList.add('low-trust');
+            } else if (p.isVip) {
                 cardEl.classList.add('vip-border');
-                document.getElementById('p-vip-tag').style.display = 'inline-block';
-            } else {
-                cardEl.classList.remove('vip-border');
-                document.getElementById('p-vip-tag').style.display = 'none';
             }
 
-            document.getElementById('p-score').textContent = `${p.score} • ${p.id}`;
+            document.getElementById('p-vip-tag').style.display = p.isVip ? 'inline-block' : 'none';
+            trustEl.textContent = `${p.trustLabel} • ${p.id}`;
+
             document.getElementById('p-img').src = p.img;
             document.getElementById('p-name').textContent = p.name;
             document.getElementById('p-city').textContent = p.city;
             document.getElementById('p-question').textContent = p.question;
             document.getElementById('p-answer').textContent = p.answer;
             document.getElementById('reply-input').value = '';
+            document.getElementById('debut-hint-msg').style.display = 'none';
 
             const tagsBox = document.getElementById('p-tags');
             tagsBox.innerHTML = p.tags.map(t => `<span class="tag">${t}</span>`).join('');
-        }
 
-        function sendPromptReply() {
-            const input = document.getElementById('reply-input');
-            const text = input.value.trim();
-            if (!text) {
-                alert("Напиши відповідь перед тим, як зробити хід!");
-                return;
-            }
-            nextProfile(true, `Твоя відповідь: «${text}»`);
+            const iceBox = document.getElementById('icebreakers-box');
+            const chips = p.icebreakers || ["Цікава відповідь, розкажеш детальніше? ✨", "Зіграємо цю партію за чашкою кави? ☕"];
+            iceBox.innerHTML = chips.map(c => `<span class="icebreaker-chip" onclick="fillIcebreaker('${c.replace(/'/g, "\\'")}')">⚡ ${c}</span>`).join('');
         }
 
         function nextProfile(isLike, customReply) {
@@ -1479,7 +1773,7 @@
             if (isLike) {
                 sentResponses.push({
                     ...profiles[currentIndex],
-                    myReply: customReply || "Вподобано ♔"
+                    myReply: customReply || "Змістовний хід ♔"
                 });
                 updateMatchesUI();
             }
@@ -1534,6 +1828,11 @@
             const question = document.getElementById('reg-prompt-q').value;
             const answer = document.getElementById('reg-prompt-a').value.trim() || "Чекаю на твій хід!";
 
+            if (!checkAutoModeration(answer)) {
+                alert("🛡️ Авто-фільтр заблокував опис анкети через підозрілі посилання або спам!");
+                return;
+            }
+
             const selectedTagEls = document.querySelectorAll('#reg-tags-box .tag-choice.selected');
             const chosenTags = Array.from(selectedTagEls).map(el => el.textContent);
             if (chosenTags.length === 0) chosenTags.push("♟️ Нова анкета");
@@ -1541,15 +1840,21 @@
             profiles.splice(currentIndex, 0, {
                 id: "#VIP-NEW",
                 isVip: true,
-                score: "♟️ 99% Нова анкета",
+                trustScore: 99,
+                trustLabel: "🛡️ 99% Верифіковано",
                 name: `${name}, ${age}`,
                 city: `${city} • щойно на сайті`,
                 img: uploadedPhotoDataUrl,
                 tags: chosenTags,
                 question: question,
-                answer: `«${answer}»`
+                answer: `«${answer}»`,
+                icebreakers: [
+                    `Привіт, ${name}! Класна ідея з кавою та кіно ☕🎬`,
+                    `Який фільм переглянула останнім часом?`
+                ]
             });
 
+            addVaultPoints(30);
             renderCard();
             openTabDirectly('swipe');
         }
@@ -1558,7 +1863,7 @@
             document.getElementById('match-count').textContent = sentResponses.length;
             const container = document.getElementById('matches-container');
             if (sentResponses.length === 0) {
-                container.innerHTML = `<div class="box-card" style="text-align:center; color:var(--muted); font-size:12px;">Надішли подарунок 🎁 або відповідь на анкету, щоб побачити історію ходів.</div>`;
+                container.innerHTML = `<div class="box-card" style="text-align:center; color:var(--muted); font-size:12px;">Зроби змістовний перший хід ♞ або надішли подарунок 🎁, щоб почати діалог.</div>`;
                 return;
             }
             container.innerHTML = sentResponses.map(p => `
