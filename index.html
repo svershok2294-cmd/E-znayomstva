@@ -27,7 +27,6 @@
 
         body {
             background-color: var(--bg-dark);
-            /* Витончений шаховий патерн на фоні */
             background-image: 
                 linear-gradient(45deg, #111115 25%, transparent 25%), 
                 linear-gradient(-45deg, #111115 25%, transparent 25%), 
@@ -42,16 +41,15 @@
             overflow: hidden;
         }
 
-        /* Шапка в чорно-білому шаховому стилі */
         header {
-            padding: 12px 16px;
+            padding: 10px 14px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: rgba(10, 10, 12, 0.92);
+            background: rgba(10, 10, 12, 0.94);
             backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border-bw);
-            z-index: 10;
+            z-index: 20;
         }
 
         .logo-wrap {
@@ -61,39 +59,54 @@
         }
 
         .chess-logo-icon {
-            width: 28px;
-            height: 28px;
+            width: 26px;
+            height: 26px;
             background: var(--white);
             color: var(--bg-dark);
             border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 900;
         }
 
         .logo {
-            font-size: 17px;
+            font-size: 15px;
             font-weight: 900;
-            letter-spacing: 0.6px;
+            letter-spacing: 0.5px;
             text-transform: uppercase;
             color: var(--white);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .mode-switch-btn {
+            background: #1c1c24;
+            color: var(--off-white);
+            border: 1px solid var(--border-bw);
+            padding: 5px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
         }
 
         .admin-badge {
             display: flex;
             align-items: center;
-            gap: 6px;
-            font-size: 11px;
+            gap: 4px;
+            font-size: 10px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
             color: var(--bg-dark);
             background: var(--white);
-            padding: 5px 11px;
+            padding: 5px 9px;
             border-radius: 6px;
-            border: 1px solid var(--white);
         }
 
         main {
@@ -114,7 +127,137 @@
             display: flex;
         }
 
-        /* Контейнер анкети */
+        /* --- ЕКРАН РЕЄСТРАЦІЇ (ОНБОРДИНГ) --- */
+        .reg-container {
+            max-width: 440px;
+            width: 100%;
+            margin: 0 auto;
+            background: var(--bg-card);
+            border: 1px solid var(--border-bw);
+            border-radius: 20px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.75);
+        }
+
+        .reg-header {
+            border-bottom: 1px solid var(--border-bw);
+            padding-bottom: 10px;
+        }
+
+        .reg-header h2 {
+            font-size: 20px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .reg-header p {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .photo-upload-box {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: #18181f;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+        }
+
+        .photo-preview {
+            width: 64px;
+            height: 64px;
+            border-radius: 12px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-bw);
+            object-fit: cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .form-group label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--muted);
+            letter-spacing: 0.4px;
+        }
+
+        .form-input, .form-select, .form-textarea {
+            background: var(--bg-dark);
+            border: 1px solid var(--border-bw);
+            color: var(--white);
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            border-color: var(--white);
+        }
+
+        .selectable-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .tag-choice {
+            background: var(--bg-dark);
+            border: 1px solid var(--border-bw);
+            color: var(--muted);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .tag-choice.selected {
+            background: var(--white);
+            color: var(--bg-dark);
+            border-color: var(--white);
+            font-weight: 800;
+        }
+
+        .submit-reg-btn {
+            background: var(--white);
+            color: var(--bg-dark);
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            cursor: pointer;
+            margin-top: 4px;
+        }
+
+        /* --- СТРІЧКА АНКЕТ --- */
         .card-container {
             flex: 1;
             display: flex;
@@ -138,7 +281,7 @@
         .photo-wrapper {
             position: relative;
             width: 100%;
-            height: 360px;
+            height: 340px;
         }
 
         .profile-img {
@@ -165,7 +308,6 @@
             border-radius: 6px;
             font-size: 11px;
             font-weight: 800;
-            letter-spacing: 0.3px;
         }
 
         .quick-ban-btn {
@@ -189,7 +331,7 @@
         }
 
         .profile-name {
-            font-size: 24px;
+            font-size: 23px;
             font-weight: 800;
             display: flex;
             align-items: center;
@@ -215,7 +357,6 @@
             margin-top: 2px;
         }
 
-        /* Блок системи відповідей та анкети (Hinge + Bumble фішки) */
         .profile-details {
             padding: 14px 16px 16px;
             background: var(--bg-card);
@@ -240,20 +381,17 @@
             font-weight: 600;
         }
 
-        /* Фірмова фішка: Система відповідей на питання */
         .prompt-box {
             background: #18181f;
             border: 1px solid var(--white);
             border-radius: 12px;
             padding: 12px;
-            position: relative;
         }
 
         .prompt-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            font-size: 11px;
+            font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 0.6px;
             color: var(--muted);
@@ -296,7 +434,6 @@
             white-space: nowrap;
         }
 
-        /* Кнопки керування в шаховому стилі */
         .actions {
             display: flex;
             justify-content: space-between;
@@ -307,7 +444,7 @@
         }
 
         .action-btn {
-            height: 52px;
+            height: 50px;
             border-radius: 12px;
             font-weight: 800;
             font-size: 14px;
@@ -345,7 +482,7 @@
             border: 1px solid var(--white);
         }
 
-        /* Адмінка та списки в Ч/Б стилі */
+        /* --- АДМІНКА ТА КАРТКИ --- */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -374,7 +511,7 @@
         }
 
         .section-title {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.6px;
@@ -454,7 +591,6 @@
             border: 1px solid var(--border-bw);
         }
 
-        /* Нижнє меню (Шахова дошка) */
         nav {
             display: flex;
             justify-content: space-around;
@@ -483,7 +619,7 @@
         }
 
         .nav-icon {
-            font-size: 19px;
+            font-size: 18px;
         }
 
         .badge-alert {
@@ -515,7 +651,10 @@
             <div class="chess-logo-icon">♞</div>
             <div class="logo">Е - Знайомства</div>
         </div>
-        <div class="admin-badge" id="admin-title">♔ Адмін: Владислав</div>
+        <div class="header-right">
+            <button class="mode-switch-btn" onclick="openTabDirectly('reg')">📝 Тест реєстрації</button>
+            <div class="admin-badge" id="admin-title">♔ Адмін: Владислав</div>
+        </div>
     </header>
 
     <main>
@@ -541,7 +680,6 @@
                     <div class="profile-details">
                         <div class="tags" id="p-tags"></div>
 
-                        <!-- Система відповідей з топових дейтинг-сайтів (Hinge / Bumble) -->
                         <div class="prompt-box">
                             <div class="prompt-header">
                                 <span id="p-question">💬 Питання для першого ходу:</span>
@@ -564,7 +702,82 @@
             </div>
         </div>
 
-        <!-- Вкладка 2: Зроблені ходи та відповіді -->
+        <!-- Вкладка 2: Екран Реєстрації для нових користувачів (Онбординг) -->
+        <div id="tab-reg" class="tab-content">
+            <div class="reg-container">
+                <div class="reg-header">
+                    <h2>♟️ Нова партія (Реєстрація)</h2>
+                    <p>Так виглядає екран для нових людей при першому вході з Telegram. Створена тут анкета одразу з'явиться першою у твоїй стрічці!</p>
+                </div>
+
+                <!-- Завантаження фото з галереї телефона -->
+                <input type="file" id="reg-photo-input" accept="image/*" style="display:none" onchange="previewRegPhoto(event)">
+                <div class="photo-upload-box" onclick="document.getElementById('reg-photo-input').click()">
+                    <img id="reg-photo-preview" class="photo-preview" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80" alt="Прев'ю">
+                    <div>
+                        <div style="font-size:14px; font-weight:800;">📸 Завантажити головне фото</div>
+                        <div style="font-size:11px; color:var(--muted); margin-top:2px;">Натисни, щоб обрати фото з галереї смартфона</div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Ім'я (з Telegram)</label>
+                        <input type="text" id="reg-name" class="form-input" placeholder="Напр., Олена" value="Олена">
+                    </div>
+                    <div class="form-group">
+                        <label>Вік</label>
+                        <input type="number" id="reg-age" class="form-input" placeholder="23" value="23">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Місто</label>
+                        <input type="text" id="reg-city" class="form-input" placeholder="Одеса, Київ..." value="Одеса">
+                    </div>
+                    <div class="form-group">
+                        <label>Кого шукаю</label>
+                        <select id="reg-target" class="form-select">
+                            <option value="Чоловіка">Шукаю чоловіка ♔</option>
+                            <option value="Дівчину">Шукаю дівчину ♕</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Обери інтереси (натисни 2–4 теги)</label>
+                    <div class="selectable-tags" id="reg-tags-box">
+                        <span class="tag-choice selected" onclick="toggleTag(this)">☕ Кава</span>
+                        <span class="tag-choice selected" onclick="toggleTag(this)">🌊 Море</span>
+                        <span class="tag-choice" onclick="toggleTag(this)">♟️ Шахи та інтелект</span>
+                        <span class="tag-choice" onclick="toggleTag(this)">🎬 Кіно</span>
+                        <span class="tag-choice" onclick="toggleTag(this)">🏋️‍♀️ Спорт</span>
+                        <span class="tag-choice" onclick="toggleTag(this)">✈️ Подорожі</span>
+                        <span class="tag-choice" onclick="toggleTag(this)">🎵 Вініл / Музика</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Питання для першого ходу (Система відповідей)</label>
+                    <select id="reg-prompt-q" class="form-select">
+                        <option value="💬 Ідеальний перший хід у спілкуванні зі мною:">Ідеальний перший хід у спілкуванні зі мною...</option>
+                        <option value="💬 Два факти і одна брехня про мене:">Два факти і одна брехня про мене...</option>
+                        <option value="💬 Мене можна підкорити, якщо ти:">Мене можна підкорити, якщо ти...</option>
+                        <option value="💬 Моя улюблена ідея для вечора п'ятниці:">Моя улюблена ідея для вечора п'ятниці...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Твоя відповідь (на неї реагуватимуть інші)</label>
+                    <textarea id="reg-prompt-a" class="form-textarea" rows="2" placeholder="Напиши цікаву відповідь...">Запросити на вечірню каву і обговорити улюблені фільми без телефонів у руках ✨</textarea>
+                </div>
+
+                <button class="submit-reg-btn" onclick="submitRegistration()">♞ Опублікувати анкету в стрічку</button>
+            </div>
+        </div>
+
+        <!-- Вкладка 3: Зроблені ходи та відповіді -->
         <div id="tab-matches" class="tab-content">
             <div class="section-title">♟️ Твої ходи та надіслані відповіді</div>
             <div id="matches-container">
@@ -572,7 +785,7 @@
             </div>
         </div>
 
-        <!-- Вкладка 3: Адмін-панель (Модерація, Скарги, Боти) -->
+        <!-- Вкладка 4: Адмін-панель (Модерація, Скарги, Боти) -->
         <div id="tab-admin" class="tab-content">
             <div class="stats-grid">
                 <div class="stat-box">
@@ -601,18 +814,22 @@
     </main>
 
     <nav>
-        <button class="nav-item active" onclick="switchTab('swipe', this)">
+        <button class="nav-item active" id="nav-btn-swipe" onclick="switchTab('swipe', this)">
             <span class="nav-icon">♞</span>
-            <span>Партія (Анкети)</span>
+            <span>Партія</span>
         </button>
-        <button class="nav-item" onclick="switchTab('matches', this)">
+        <button class="nav-item" id="nav-btn-reg" onclick="switchTab('reg', this)">
+            <span class="nav-icon">📝</span>
+            <span>Реєстрація</span>
+        </button>
+        <button class="nav-item" id="nav-btn-matches" onclick="switchTab('matches', this)">
             <span class="nav-icon">💬</span>
-            <span>Відповіді (<span id="match-count">0</span>)</span>
+            <span>Ходи (<span id="match-count">0</span>)</span>
         </button>
-        <button class="nav-item" onclick="switchTab('admin', this)">
+        <button class="nav-item" id="nav-btn-admin" onclick="switchTab('admin', this)">
             <span class="badge-alert" id="nav-alert">5</span>
             <span class="nav-icon">♔</span>
-            <span>Адмін-центр</span>
+            <span>Адмін</span>
         </button>
     </nav>
 
@@ -623,6 +840,8 @@
         const tgUser = tg.initDataUnsafe?.user;
         const adminName = (tgUser && tgUser.first_name) ? tgUser.first_name : "Владислав";
         document.getElementById('admin-title').textContent = `♔ Адмін: ${adminName}`;
+
+        let uploadedPhotoDataUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80";
 
         let profiles = [
             {
@@ -654,16 +873,6 @@
                 tags: ["🎨 Архітектура", "🎵 Вініл", "✈️ Спонтанні поїздки"],
                 question: "💬 Два факти і одна брехня про мене:",
                 answer: "«Стрибала з парашутом, вмію грати сицилійський захист у шахах, ніколи не пила каву. Вгадаєш?»"
-            },
-            {
-                id: "#1104",
-                score: "♟️ 89% Гарний збіг",
-                name: "Софія, 25",
-                city: "Одеса • 2 км від тебе",
-                img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=800&q=80",
-                tags: ["📸 Чорно-біле фото", "🏋️‍♀️ Спорт", "🌊 Вечірній бриз"],
-                question: "💬 Мене можна підкорити, якщо ти:",
-                answer: "«Маєш почуття гумору, тримаєш слово і знаєш, де в місті найсмачніші десерти»"
             }
         ];
 
@@ -712,13 +921,60 @@
         let sentResponses = [];
         let bannedUsers = [];
 
+        // Завантаження фото з галереї під час реєстрації
+        function previewRegPhoto(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                uploadedPhotoDataUrl = e.target.result;
+                document.getElementById('reg-photo-preview').src = uploadedPhotoDataUrl;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function toggleTag(el) {
+            el.classList.toggle('selected');
+        }
+
+        // Збереження нової анкети і додавання її на перше місце у стрічці
+        function submitRegistration() {
+            const name = document.getElementById('reg-name').value.trim() || "Новий гравець";
+            const age = document.getElementById('reg-age').value.trim() || "22";
+            const city = document.getElementById('reg-city').value.trim() || "Україна";
+            const question = document.getElementById('reg-prompt-q').value;
+            const answer = document.getElementById('reg-prompt-a').value.trim() || "Чекаю на твій перший хід!";
+
+            const selectedTagEls = document.querySelectorAll('#reg-tags-box .tag-choice.selected');
+            const chosenTags = Array.from(selectedTagEls).map(el => el.textContent);
+            if (chosenTags.length === 0) chosenTags.push("♟️ Нова анкета");
+
+            const newProfile = {
+                id: "#NEW",
+                score: "♟️ 99% Нова реєстрація",
+                name: `${name}, ${age}`,
+                city: `${city} • щойно на сайті`,
+                img: uploadedPhotoDataUrl,
+                tags: chosenTags,
+                question: question,
+                answer: `«${answer}»`
+            };
+
+            // Вставляємо нову анкету прямо перед поточною карткою у стрічці
+            profiles.splice(currentIndex, 0, newProfile);
+            renderCard();
+
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            openTabDirectly('swipe');
+        }
+
         function renderCard() {
             const cardHolder = document.getElementById('card-holder');
             if (currentIndex >= profiles.length) {
                 cardHolder.innerHTML = `
                     <div class="empty-state">
                         <h3 style="color:#fff; margin-bottom:8px;">♔ Партію завершено!</h3>
-                        <p style="margin-bottom:16px;">Усі анкети переглянуто. Перевір вкладку «Відповіді» або «Адмін-центр».</p>
+                        <p style="margin-bottom:16px;">Усі анкети переглянуто. Можеш створити тестову анкету у вкладці «Реєстрація» або оновити список.</p>
                         <button class="btn-sm btn-ban-bw" onclick="location.reload()">Почати нову партію</button>
                     </div>`;
                 return;
@@ -737,7 +993,6 @@
             tagsBox.innerHTML = p.tags.map(t => `<span class="tag">${t}</span>`).join('');
         }
 
-        // Відправка відповіді на конкретне питання анкети (топ-фішка Hinge)
         function sendPromptReply() {
             const input = document.getElementById('reply-input');
             const text = input.value.trim();
@@ -917,6 +1172,11 @@
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.getElementById('tab-' + tabName).classList.add('active');
             btnEl.classList.add('active');
+        }
+
+        function openTabDirectly(tabName) {
+            const btn = document.getElementById('nav-btn-' + tabName);
+            switchTab(tabName, btn);
         }
 
         renderCard();
