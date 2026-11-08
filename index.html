@@ -3,202 +3,839 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Е-Знайомства</title>
-    <!-- Підключення Telegram WebApp SDK -->
+    <title>Е - Знайомства | Адмін</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --bg-black: #0a0a0a;
-            --bg-white: #ffffff;
-            --border-width: 2px;
+            --bg-color: #0f0f14;
+            --card-bg: #1c1c24;
+            --accent: #ff3b5c;
+            --accent-grad: linear-gradient(135deg, #ff3b5c, #ff758c);
+            --admin-gold: #f1c40f;
+            --danger: #ff4757;
+            --success: #2ecc71;
+            --text-main: #ffffff;
+            --text-sec: #9e9ea8;
+            --nav-bg: #16161e;
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Courier New', Courier, monospace;
-            user-select: none;
-            -webkit-user-select: none; /* Safari/Chrome */
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
-            background-color: var(--bg-black);
-            color: var(--bg-white);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            height: 100vh;
             overflow: hidden;
         }
 
-        /* Шаховий патерн у шапці */
-        .chess-header {
+        /* Шапка з бейджем Адміна */
+        header {
+            padding: 12px 16px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 14px 16px;
-            border-bottom: var(--border-width) solid var(--bg-white);
-            /* Генерація шахового патерну через CSS */
-            background-image: 
-                linear-gradient(45deg, #181818 25%, transparent 25%), 
-                linear-gradient(-45deg, #181818 25%, transparent 25%), 
-                linear-gradient(45deg, transparent 75%, #181818 75%), 
-                linear-gradient(-45deg, transparent 75%, #181818 75%);
-            background-size: 16px 16px;
-            background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+            justify-content: space-between;
+            background: var(--nav-bg);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .logo {
             font-size: 18px;
-            font-weight: 900;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            background: var(--bg-black);
-            padding: 4px 8px;
-            border: 1px solid var(--bg-white);
+            font-weight: 800;
+            background: var(--accent-grad);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        /* Контейнер анкети */
-        .profile-container {
+        .admin-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #000;
+            background: linear-gradient(135deg, #f1c40f, #f39c12);
+            padding: 5px 12px;
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(241, 196, 15, 0.3);
+        }
+
+        main {
+            flex: 1;
+            position: relative;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tab-content {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+        }
+
+        .tab-content.active {
+            display: flex;
+        }
+
+        /* Картка анкети (Тест стрічки + швидка модерація) */
+        .card-container {
             flex: 1;
             display: flex;
             flex-direction: column;
-            padding: 16px;
-            overflow: hidden; /* Щоб картки не вилазили */
+            justify-content: center;
+            position: relative;
+            max-width: 420px;
+            width: 100%;
+            margin: 0 auto;
         }
 
         .profile-card {
-            border: var(--border-width) solid var(--bg-white);
-            background: var(--bg-black);
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
             position: relative;
+            width: 100%;
+            height: 60vh;
+            max-height: 490px;
+            background-color: var(--card-bg);
+            border-radius: 24px;
             overflow: hidden;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+            transition: transform 0.28s ease, opacity 0.28s ease;
         }
 
         .profile-img {
-            position: absolute;
-            top: 0;
-            left: 0;
             width: 100%;
             height: 100%;
             object-fit: cover;
-            /* Чорно-білий фільтр для естетики */
-            filter: grayscale(100%) contrast(115%);
-            z-index: 1;
         }
 
-        .profile-info {
-            position: relative;
-            z-index: 2;
-            background: rgba(10, 10, 10, 0.9);
-            border-top: var(--border-width) solid var(--bg-white);
-            padding: 14px;
+        .card-top-bar {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            right: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-id-pill {
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(6px);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            color: #ccc;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .quick-ban-btn {
+            background: rgba(255, 71, 87, 0.9);
+            color: #fff;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(255, 71, 87, 0.4);
+        }
+
+        .profile-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 60px 20px 20px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.94) 15%, rgba(0, 0, 0, 0.55) 65%, transparent);
         }
 
         .profile-name {
-            font-size: 22px;
-            font-weight: bold;
+            font-size: 24px;
+            font-weight: 700;
             margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .online-dot {
+            width: 10px;
+            height: 10px;
+            background: var(--success);
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .profile-city {
+            font-size: 13px;
+            color: #d0d0d8;
+            margin-bottom: 8px;
         }
 
         .profile-bio {
-            font-size: 13px;
-            color: #d0d0d0;
-            margin-bottom: 10px;
+            font-size: 14px;
+            line-height: 1.4;
+            color: #ececf4;
+            margin-bottom: 12px;
         }
 
-        /* Кнопки дій у шаховому стилі */
-        .action-bar {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 10px;
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .tag {
+            background: rgba(255, 255, 255, 0.14);
+            backdrop-filter: blur(6px);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        /* Кнопки під карткою */
+        .actions {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
             margin-top: 16px;
         }
 
-        .btn {
-            padding: 14px;
-            font-size: 14px;
-            font-weight: 900;
-            text-transform: uppercase;
+        .action-btn {
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
             cursor: pointer;
-            border: var(--border-width) solid var(--bg-white);
-            transition: transform 0.1s;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+            transition: transform 0.15s ease;
         }
 
-        .btn:active {
-            transform: scale(0.96);
+        .action-btn:active {
+            transform: scale(0.9);
         }
 
-        .btn-black {
-            background: var(--bg-black);
-            color: var(--bg-white);
+        .btn-pass {
+            background: #262632;
+            color: #ff4757;
+            border: 1px solid rgba(255, 71, 87, 0.25);
         }
 
-        .btn-white {
-            background: var(--bg-white);
-            color: var(--bg-black);
+        .btn-spam {
+            width: auto;
+            height: 46px;
+            padding: 0 16px;
+            border-radius: 24px;
+            background: rgba(255, 71, 87, 0.15);
+            color: #ff4757;
+            border: 1px solid #ff4757;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .btn-like {
+            background: var(--accent-grad);
+            color: #ffffff;
+        }
+
+        /* Списки та Адмін-панель */
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin: 10px 0 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .stat-box {
+            background: var(--card-bg);
+            padding: 12px;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-num {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--admin-gold);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-sec);
+            margin-top: 2px;
+        }
+
+        .admin-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 14px;
+            margin-bottom: 12px;
+            border-left: 4px solid var(--danger);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .admin-card.bot-card {
+            border-left-color: var(--admin-gold);
+        }
+
+        .admin-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar-sm {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .admin-card-info {
+            flex: 1;
+        }
+
+        .admin-card-info h4 {
+            font-size: 15px;
+            margin-bottom: 2px;
+        }
+
+        .reason-tag {
+            display: inline-block;
+            background: rgba(255, 71, 87, 0.18);
+            color: #ff6b81;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 8px;
+        }
+
+        .report-text {
+            font-size: 13px;
+            color: #d0d0d8;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 8px 10px;
+            border-radius: 10px;
+        }
+
+        .admin-btn-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-sm {
+            flex: 1;
+            padding: 9px 12px;
+            border-radius: 10px;
+            border: none;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-ban {
+            background: var(--danger);
+            color: #fff;
+        }
+
+        .btn-ignore {
+            background: #2b2b38;
+            color: var(--text-sec);
+        }
+
+        .btn-unban {
+            background: rgba(46, 204, 113, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        /* Нижня навігація */
+        nav {
+            display: flex;
+            justify-content: space-around;
+            background: var(--nav-bg);
+            padding: 10px 0 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .nav-item {
+            background: none;
+            border: none;
+            color: var(--text-sec);
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .nav-item.active {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .nav-icon {
+            font-size: 20px;
+        }
+
+        .badge-alert {
+            position: absolute;
+            top: -4px;
+            right: 6px;
+            background: var(--danger);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 10px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 30px 16px;
+            color: var(--text-sec);
+            background: var(--card-bg);
+            border-radius: 16px;
         }
     </style>
 </head>
 <body>
 
-    <div class="chess-header">
-        <div class="logo">♟ Е-ЗНАЙОМСТВА</div>
-    </div>
+    <header>
+        <div class="logo">🔥 Е - Знайомства</div>
+        <div class="admin-badge" id="admin-title">🛡️ Адмін: Владислав</div>
+    </header>
 
-    <!-- Екран 1: Свайпи -->
-    <div class="profile-container">
-        <div class="profile-card" id="card">
-            <img id="p-img" class="profile-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80" alt="Profile">
-            <div class="profile-info">
-                <div class="profile-name" id="p-name">Анна, 25 • Київ</div>
-                <div class="profile-bio" id="p-bio">Архітекторка. Ціную інтелектуальний гумор та хорошу каву. Люблю партію в шахи на вихідних.</div>
+    <main>
+        <!-- Вкладка 1: Тест стрічки + Швидка модерація -->
+        <div id="tab-swipe" class="tab-content active">
+            <div class="card-container" id="card-holder">
+                <div class="profile-card" id="current-card">
+                    <img id="p-img" class="profile-img" src="" alt="Фото">
+                    <div class="card-top-bar">
+                        <span class="user-id-pill" id="p-id">ID: #1042</span>
+                        <button class="quick-ban-btn" onclick="banFromSwipe()">🚫 В бан</button>
+                    </div>
+                    <div class="profile-overlay">
+                        <div class="profile-name">
+                            <span id="p-name"></span>
+                            <span class="online-dot"></span>
+                        </div>
+                        <div class="profile-city" id="p-city"></div>
+                        <div class="profile-bio" id="p-bio"></div>
+                        <div class="tags" id="p-tags"></div>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button class="action-btn btn-pass" onclick="nextProfile(false)">✕</button>
+                    <button class="action-btn btn-spam" onclick="banFromSwipe()">🗑️ Спам / Бот</button>
+                    <button class="action-btn btn-like" onclick="nextProfile(true)">❤</button>
+                </div>
             </div>
         </div>
 
-        <div class="action-bar">
-            <button class="btn btn-black" onclick="nextProfile()">✕ Пас</button>
-            <button class="btn btn-black" onclick="superLike()">♛ Суперхід</button>
-            <button class="btn btn-white" onclick="nextProfile()">♥ Хід</button>
+        <!-- Вкладка 2: Тест Симпатій -->
+        <div id="tab-matches" class="tab-content">
+            <h3 style="margin-bottom: 14px;">Протестовані лайки ❤️</h3>
+            <div id="matches-container">
+                <div class="empty-state">Натисни ❤️ на будь-якій анкеті, щоб протестувати список симпатій.</div>
+            </div>
         </div>
-    </div>
+
+        <!-- Вкладка 3: Адмін-панель (Скарги, Боти, Спам, Чорний список) -->
+        <div id="tab-admin" class="tab-content">
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-num" id="stat-reports">3</div>
+                    <div class="stat-label">Нові скарги</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-num" id="stat-bots">2</div>
+                    <div class="stat-label">Підозра на ботів</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-num" id="stat-banned">0</div>
+                    <div class="stat-label">Заблоковано</div>
+                </div>
+            </div>
+
+            <div class="section-title">
+                <span>🚨 Скарги від користувачів</span>
+            </div>
+            <div id="reports-list"></div>
+
+            <div class="section-title">
+                <span>🤖 Авто-виявлення ботів та спаму</span>
+            </div>
+            <div id="bots-list"></div>
+
+            <div class="section-title">
+                <span>🔒 Чорний список (Забанені)</span>
+            </div>
+            <div id="banned-list">
+                <div class="empty-state">Поки нікого не заблоковано.</div>
+            </div>
+        </div>
+    </main>
+
+    <nav>
+        <button class="nav-item active" onclick="switchTab('swipe', this)">
+            <span class="nav-icon">🔥</span>
+            <span>Тест стрічки</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('matches', this)">
+            <span class="nav-icon">💬</span>
+            <span>Тест лайків (<span id="match-count">0</span>)</span>
+        </button>
+        <button class="nav-item" onclick="switchTab('admin', this)">
+            <span class="badge-alert" id="nav-alert">5</span>
+            <span class="nav-icon">🛡️</span>
+            <span>Адмін-панель</span>
+        </button>
+    </nav>
 
     <script>
         const tg = window.Telegram.WebApp;
-        // Розгортаємо апку на весь екран
         tg.expand();
-        // Включаємо вібровіддачу при кліку
-        if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
 
-        const profiles = [
+        // Ідентифікація власника як Адміна
+        const tgUser = tg.initDataUnsafe?.user;
+        const adminName = (tgUser && tgUser.first_name) ? tgUser.first_name : "Владислав";
+        document.getElementById('admin-title').textContent = `🛡️ Адмін: ${adminName}`;
+
+        // Стрічка анкет для тестування (включаючи фейкові/спам для перевірки бану)
+        let profiles = [
             {
-                name: "Марія, 23 • Львів",
-                bio: "Архітекторка. Ціную чорно-білу естетику.",
-                img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=600&q=80"
+                id: "ID: #1042",
+                name: "Аліна, 24",
+                city: "📍 Одеса • 3 км від тебе",
+                bio: "Обожнюю море, вечірні прогулянки та щирих людей. Шукаю цікаве спілкування ✨",
+                img: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=800&q=80",
+                tags: ["🌊 Море", "☕ Кава", "🎬 Кіно"]
             },
             {
-                name: "Олена, 27 • Одеса",
-                bio: "Обожнюю море, подорожі та спонтанні рішення.",
-                img: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=600&q=80"
+                id: "ID: #9981 [ПІДОЗРА НА СПАМ]",
+                name: "Крістіна VIP, 21",
+                city: "📍 Київ • 1 км від тебе",
+                bio: "Привіт котику 😘 Переходь у мій закритий телеграм канал за посиланням у профілі, заробіток на крипті 💰",
+                img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80",
+                tags: ["💰 Крипта", "🔥 Посилання"]
+            },
+            {
+                id: "ID: #1088",
+                name: "Вікторія, 26",
+                city: "📍 Львів • 5 км від тебе",
+                bio: "Дизайнерка інтер'єрів. Люблю активний відпочинок, музику та затишні заклади.",
+                img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=800&q=80",
+                tags: ["🎨 Дизайн", "🎵 Музика", "✈️ Подорожі"]
+            },
+            {
+                id: "ID: #1104",
+                name: "Софія, 25",
+                city: "📍 Одеса • 4 км від тебе",
+                bio: "Займаюся фітнесом та фотографією. За спонтанні поїздки та нові враження!",
+                img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=800&q=80",
+                tags: ["📸 Фото", "🏋️‍♀️ Спорт"]
             }
         ];
-        let currentIdx = 0;
 
-        function nextProfile() {
-            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-            currentIdx = (currentIdx + 1) % profiles.length;
-            const p = profiles[currentIdx];
-            document.getElementById('p-name').innerText = p.name;
-            document.getElementById('p-bio').innerText = p.bio;
+        // Скарги від користувачів
+        let reportsData = [
+            {
+                id: "rep-1",
+                name: "Максим, 29 (@max_crypto_bot)",
+                reason: "Спам / Шахрайство",
+                text: "Скарга від Аліни: «Кидає фішингові посилання в особисті повідомлення і пропонує сумнівні біржі»",
+                img: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80"
+            },
+            {
+                id: "rep-2",
+                name: "Анжела, 19 (@angela_vip_99)",
+                reason: "Фейкова анкета / Бот",
+                text: "Скарга від Олександра: «Вимагає передоплату на картку нібито за таксі, фото взяті з інтернету»",
+                img: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80"
+            },
+            {
+                id: "rep-3",
+                name: "Артем, 31 (@artem_rude)",
+                reason: "Образи в чаті",
+                text: "Скарга від Вікторії: «Неадекватна поведінка, спамить нецензурною лексикою»",
+                img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80"
+            }
+        ];
+
+        // Підозрілі боти
+        let botsData = [
+            {
+                id: "bot-1",
+                name: "FastMoney_Bot (@earn_fast_tg)",
+                reason: "Масові розсилки (140 повідомлень/хв)",
+                text: "Автоматичний фільтр зафіксував розсилку спам-посилань по нових анкетах.",
+                img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80"
+            },
+            {
+                id: "bot-2",
+                name: "Каріна_Bot (@karina_auto_reply)",
+                reason: "Підозрілий скрипт",
+                text: "Акаунт створено 5 хвилин тому, автоматично лайкає 100% анкет підряд.",
+                img: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80"
+            }
+        ];
+
+        let currentIndex = 0;
+        let likedProfiles = [];
+        let bannedUsers = [];
+
+        function renderCard() {
+            const cardHolder = document.getElementById('card-holder');
+            if (currentIndex >= profiles.length) {
+                cardHolder.innerHTML = `
+                    <div class="empty-state">
+                        <h3 style="margin-bottom:8px;">Усі тестові анкети переглянуто ✅</h3>
+                        <p style="margin-bottom:16px;">Ти можеш перезапустити стрічку або перейти в Адмін-панель для модерації скарг.</p>
+                        <button class="btn-sm btn-ban" style="background:var(--accent-grad);" onclick="location.reload()">Оновити тестову стрічку</button>
+                    </div>`;
+                return;
+            }
+
+            const p = profiles[currentIndex];
+            document.getElementById('p-id').textContent = p.id;
             document.getElementById('p-img').src = p.img;
+            document.getElementById('p-name').textContent = p.name;
+            document.getElementById('p-city').textContent = p.city;
+            document.getElementById('p-bio').textContent = p.bio;
+
+            const tagsBox = document.getElementById('p-tags');
+            tagsBox.innerHTML = p.tags.map(t => `<span class="tag">${t}</span>`).join('');
         }
 
-        function superLike() {
-            alert("♛ Це Суперхід! Функція підключення Telegram Stars буде активована, як тільки бот запрацює.");
+        function nextProfile(isLike) {
+            if (tg.HapticFeedback) {
+                tg.HapticFeedback.impactOccurred(isLike ? 'medium' : 'light');
+            }
+
+            const card = document.getElementById('current-card');
+            if (!card) return;
+
+            card.style.transform = isLike ? 'translateX(120px) rotate(8deg)' : 'translateX(-120px) rotate(-8deg)';
+            card.style.opacity = '0';
+
+            if (isLike) {
+                likedProfiles.push(profiles[currentIndex]);
+                updateMatchesUI();
+            }
+
+            setTimeout(() => {
+                currentIndex++;
+                card.style.transition = 'none';
+                card.style.transform = 'translateX(0) rotate(0)';
+                card.style.opacity = '1';
+                renderCard();
+                setTimeout(() => {
+                    if (document.getElementById('current-card')) {
+                        document.getElementById('current-card').style.transition = 'transform 0.28s ease, opacity 0.28s ease';
+                    }
+                }, 30);
+            }, 220);
         }
+
+        // Миттєвий бан прямо зі стрічки
+        function banFromSwipe() {
+            if (currentIndex >= profiles.length) return;
+            const target = profiles[currentIndex];
+
+            if (tg.HapticFeedback) {
+                tg.HapticFeedback.notificationOccurred('warning');
+            }
+
+            bannedUsers.push({
+                name: target.name,
+                reason: "Заблоковано адміном зі стрічки (Спам)",
+                img: target.img
+            });
+
+            renderAdminLists();
+            nextProfile(false);
+        }
+
+        function updateMatchesUI() {
+            document.getElementById('match-count').textContent = likedProfiles.length;
+            const container = document.getElementById('matches-container');
+
+            if (likedProfiles.length === 0) {
+                container.innerHTML = `<div class="empty-state">Натисни ❤️ на будь-якій анкеті, щоб протестувати список симпатій.</div>`;
+                return;
+            }
+
+            container.innerHTML = likedProfiles.map(p => `
+                <div class="admin-card" style="border-left-color: var(--success);">
+                    <div class="admin-card-header">
+                        <img class="avatar-sm" src="${p.img}" alt="${p.name}">
+                        <div class="admin-card-info">
+                            <h4>${p.name}</h4>
+                            <p style="font-size:12px; color:#9e9ea8;">${p.city}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Рендер Адмін-панелі
+        function renderAdminLists() {
+            const repBox = document.getElementById('reports-list');
+            const botBox = document.getElementById('bots-list');
+            const banBox = document.getElementById('banned-list');
+
+            // Статистика та бейдж
+            document.getElementById('stat-reports').textContent = reportsData.length;
+            document.getElementById('stat-bots').textContent = botsData.length;
+            document.getElementById('stat-banned').textContent = bannedUsers.length;
+
+            const totalActive = reportsData.length + botsData.length;
+            const alertBadge = document.getElementById('nav-alert');
+            if (totalActive > 0) {
+                alertBadge.style.display = 'inline-block';
+                alertBadge.textContent = totalActive;
+            } else {
+                alertBadge.style.display = 'none';
+            }
+
+            // Список скарг
+            if (reportsData.length === 0) {
+                repBox.innerHTML = `<div class="empty-state">Усі скарги розглянуто ✅</div>`;
+            } else {
+                repBox.innerHTML = reportsData.map(r => `
+                    <div class="admin-card">
+                        <div class="admin-card-header">
+                            <img class="avatar-sm" src="${r.img}">
+                            <div class="admin-card-info">
+                                <h4>${r.name}</h4>
+                                <span class="reason-tag">${r.reason}</span>
+                            </div>
+                        </div>
+                        <div class="report-text">${r.text}</div>
+                        <div class="admin-btn-row">
+                            <button class="btn-sm btn-ban" onclick="handleReport('${r.id}', true)">🔨 Забанити та видалити спам</button>
+                            <button class="btn-sm btn-ignore" onclick="handleReport('${r.id}', false)">Відхилити</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Список ботів
+            if (botsData.length === 0) {
+                botBox.innerHTML = `<div class="empty-state">Підозрілих ботів не виявлено 🛡️</div>`;
+            } else {
+                botBox.innerHTML = botsData.map(b => `
+                    <div class="admin-card bot-card">
+                        <div class="admin-card-header">
+                            <img class="avatar-sm" src="${b.img}">
+                            <div class="admin-card-info">
+                                <h4>${b.name}</h4>
+                                <span class="reason-tag" style="color:#f1c40f; background:rgba(241,196,15,0.15);">${b.reason}</span>
+                            </div>
+                        </div>
+                        <div class="report-text">${b.text}</div>
+                        <div class="admin-btn-row">
+                            <button class="btn-sm btn-ban" onclick="handleBot('${b.id}', true)">🤖 Заблокувати бота</button>
+                            <button class="btn-sm btn-ignore" onclick="handleBot('${b.id}', false)">Залишити</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Чорний список
+            if (bannedUsers.length === 0) {
+                banBox.innerHTML = `<div class="empty-state">Поки нікого не заблоковано.</div>`;
+            } else {
+                banBox.innerHTML = bannedUsers.map((u, idx) => `
+                    <div class="admin-card" style="border-left-color:#555;">
+                        <div class="admin-card-header">
+                            <img class="avatar-sm" src="${u.img}">
+                            <div class="admin-card-info">
+                                <h4>${u.name}</h4>
+                                <p style="font-size:12px; color:#ff6b81;">${u.reason}</p>
+                            </div>
+                            <button class="btn-sm btn-unban" style="flex:0 0 auto;" onclick="unbanUser(${idx})">Розбанити</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function handleReport(id, isBan) {
+            const item = reportsData.find(r => r.id === id);
+            reportsData = reportsData.filter(r => r.id !== id);
+
+            if (isBan && item) {
+                bannedUsers.push({
+                    name: item.name,
+                    reason: item.reason,
+                    img: item.img
+                });
+            }
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred(isBan ? 'success' : 'light');
+            renderAdminLists();
+        }
+
+        function handleBot(id, isBan) {
+            const item = botsData.find(b => b.id === id);
+            botsData = botsData.filter(b => b.id !== id);
+
+            if (isBan && item) {
+                bannedUsers.push({
+                    name: item.name,
+                    reason: "Авто-бот / Спам-розсилка",
+                    img: item.img
+                });
+            }
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            renderAdminLists();
+        }
+
+        function unbanUser(index) {
+            bannedUsers.splice(index, 1);
+            renderAdminLists();
+        }
+
+        function switchTab(tabName, btnEl) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+            document.getElementById('tab-' + tabName).classList.add('active');
+            btnEl.classList.add('active');
+        }
+
+        renderCard();
+        renderAdminLists();
     </script>
 </body>
 </html>
