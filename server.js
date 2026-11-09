@@ -11,7 +11,7 @@ const MAX_AGE_SECONDS = 300;
 let firebaseReady = false;
 try {
   const key = JSON.parse(fs.readFileSync('/etc/secrets/firebase-service-account.json', 'utf8'));
-  if (key.project_id !== 'navziazku') throw new Error('Unexpected Firebase project');
+  if (key.project_id !== 'nazviazku') throw new Error('Unexpected Firebase project');
   initializeApp({ credential: cert(key) });
   firebaseReady = true;
 } catch (error) {
