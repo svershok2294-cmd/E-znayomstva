@@ -1070,7 +1070,7 @@
                 </div>
             </div>
 
-            <!-- Вкладка 2: VIP Магазин + Королівський Сейф -->
+            <!-- Вкладка 2: VIP Магазин + Королівський Сейф + Щоденний бонус -->
             <div id="tab-vip" class="tab-content">
                 <div class="vip-container">
                     <div class="vault-banner">
@@ -1078,11 +1078,20 @@
                             <span style="font-size:13px; font-weight:900; color:var(--cyan);">🏦 КОРОЛІВСЬКИЙ СЕЙФ АКТИВНОСТІ</span>
                             <span style="font-size:12px; font-weight:900;"><span id="vault-pts-big">20</span> / 100 💎</span>
                         </div>
-                        <p style="font-size:11px; color:var(--off-white);">За кожен розумний хід (+10 💎) та подарунок (+25 💎) ти накопичуєш бали у Сейфі. Збери 100 💎 та активуй VIP або Буст безкоштовно!</p>
+                        <p style="font-size:11px; color:var(--off-white);">За кожен розумний хід (+10 💎), подарунок (+25 💎) та щоденний вхід (+15 💎) ти накопичуєш діаманти. Збери 100 💎 та активуй VIP безкоштовно!</p>
                         <div class="progress-track">
                             <div class="progress-fill" id="vault-progress"></div>
                         </div>
                         <button class="cyan-btn" onclick="claimVaultReward()">🔓 Обміняти 100 💎 на VIP Буст анкети</button>
+                    </div>
+
+                    <div class="box-card" style="border-color: rgba(56, 189, 248, 0.4);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <strong style="font-size:12px; color:var(--cyan);">🔥 Щоденний бонус за вхід</strong>
+                            <span style="font-size:11px; font-weight:800; color:var(--success);" id="daily-streak-label">Серія: 1 дн.</span>
+                        </div>
+                        <p style="font-size:11px; color:var(--muted); margin-bottom:8px;">Заходь у додаток щодня, отримуй по +15 💎 та безкоштовні подарунки для знайомств.</p>
+                        <button class="primary-btn" id="daily-bonus-btn" onclick="manualClaimDailyBonus()">🎁 Перевірити щоденний бонус (+15 💎)</button>
                     </div>
 
                     <div class="vip-banner">
@@ -1224,7 +1233,7 @@
 
                     <div class="stats-grid">
                         <div class="stat-box">
-                            <div class="stat-num" id="stat-reports">2</div>
+                            <div class="stat-num" id="stat-reports">1</div>
                             <div class="stat-label">Скарги / Фільтр</div>
                         </div>
                         <div class="stat-box">
@@ -1267,7 +1276,7 @@
                 <span>Ходи (<span id="match-count">0</span>)</span>
             </button>
             <button class="nav-item admin-only-el" id="nav-btn-admin" onclick="switchTab('admin', this)">
-                <span class="badge-alert" id="nav-alert">3</span>
+                <span class="badge-alert" id="nav-alert">2</span>
                 <span class="nav-icon">♔</span>
                 <span>Адмін</span>
             </button>
@@ -1416,6 +1425,7 @@
         let freeGiftsRemaining = parseInt(localStorage.getItem('chess_free_gifts') || '5', 10);
         let adminRevenueStars = parseInt(localStorage.getItem('chess_admin_stars') || '0', 10);
         let vaultPoints = parseInt(localStorage.getItem('chess_vault_pts') || '20', 10);
+        let dailyStreak = parseInt(localStorage.getItem('chess_daily_streak') || '1', 10);
 
         const savedWallet = localStorage.getItem('chess_ton_wallet') || '';
         if (savedWallet) document.getElementById('payout-requisites').value = savedWallet;
@@ -1425,6 +1435,7 @@
             localStorage.setItem('chess_free_gifts', String(freeGiftsRemaining));
             localStorage.setItem('chess_admin_stars', String(adminRevenueStars));
             localStorage.setItem('chess_vault_pts', String(vaultPoints));
+            localStorage.setItem('chess_daily_streak', String(dailyStreak));
             updateBalancesUI();
 
             if (isFirebaseConnected && db) {
@@ -1442,6 +1453,7 @@
             document.getElementById('admin-revenue-uah').textContent = adminRevenueStars;
             document.getElementById('vault-pts').textContent = vaultPoints;
             document.getElementById('vault-pts-big').textContent = vaultPoints;
+            document.getElementById('daily-streak-label').textContent = `Серія: ${dailyStreak} дн. 🔥`;
             const pct = Math.min(100, Math.round((vaultPoints / 100) * 100));
             document.getElementById('vault-progress').style.width = pct + '%';
         }
@@ -1453,7 +1465,7 @@
 
         function claimVaultReward() {
             if (vaultPoints < 100) {
-                alert(`У твоєму Сейфі зараз ${vaultPoints} 💎 із 100 💎.\nРоби змістовні перші ходи (+10 💎) або даруй подарунки (+25 💎), щоб відкрити Сейф безкоштовно!`);
+                alert(`У твоєму Сейфі зараз ${vaultPoints} 💎 із 100 💎.\nРоби змістовні перші ходи (+10 💎), даруй подарунки (+25 💎) або заходь щодня (+15 💎), щоб відкрити Сейф безкоштовно!`);
                 return;
             }
             vaultPoints -= 100;
@@ -1486,7 +1498,7 @@
         window.addEventListener('resize', applyResponsiveLayout);
         applyResponsiveLayout();
 
-        // --- СТАРТОВІ АНКЕТИ + СИНХРОНІЗАЦІЯ FIREBASE ---
+        // --- СТАРТОВІ ЖИВІ АНКЕТИ (БЕЗ ТЕСТОВИХ БОТІВ У СТРІЧЦІ) ---
         let uploadedPhotoDataUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80";
 
         const defaultProfiles = [
@@ -1507,34 +1519,35 @@
                 ]
             },
             {
-                id: "#9981",
-                isVip: false,
-                trustScore: 14,
-                trustLabel: "🚨 14% Підозра на спам",
-                name: "Крістіна VIP, 21",
-                city: "Київ • 1 км від тебе",
-                img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80",
-                tags: ["💰 Крипта", "🔥 Закритий канал"],
-                question: "💬 Моя головна ціль тут:",
-                answer: "«Шукаю спонсора або переходь у мій ТГ-канал за посиланням у профілі 😘»",
+                id: "#1088",
+                isVip: true,
+                trustScore: 96,
+                trustLabel: "🛡️ 96% Перевірений профіль",
+                name: "Вікторія, 25",
+                city: "Київ • 2 км від тебе • Онлайн",
+                img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=800&q=80",
+                tags: ["🎨 Дизайн", "🎵 Вініл", "✈️ Подорожі"],
+                question: "💬 Два факти і одна брехня:",
+                answer: "«Стрибала з парашутом, вмію грати сицилійський захист у шахах, ніколи не пила лате. Вгадаєш?»",
                 icebreakers: [
-                    "Перевірка анкети модератором 🛡️"
+                    "Ставлю на те, що неможливо не пити каву ☕😄",
+                    "Зіграємо партію з сицилійським захистом? ♟️"
                 ]
             },
             {
-                id: "#1088",
-                isVip: true,
-                trustScore: 95,
-                trustLabel: "🛡️ 95% Перевірений профіль",
-                name: "Вікторія, 26",
-                city: "Львів • 4 км від тебе • Онлайн",
-                img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=800&q=80",
-                tags: ["🎨 Архітектура", "🎵 Вініл", "✈️ Подорожі"],
-                question: "💬 Два факти і одна брехня:",
-                answer: "«Стрибала з парашутом, вмію грати сицилійський захист у шахах, ніколи не пила каву. Вгадаєш?»",
+                id: "#1104",
+                isVip: false,
+                trustScore: 94,
+                trustLabel: "🛡️ 94% Верифіковано",
+                name: "Дарина, 23",
+                city: "Львів • Онлайн",
+                img: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=800&q=80",
+                tags: ["📚 Книги", "🍷 Вечірні розмови", "🌊 Море"],
+                question: "💬 Мене можна підкорити, якщо:",
+                answer: "«У тебе класне почуття гумору і ти знаєш, який фільм подивитися ввечері»",
                 icebreakers: [
-                    "Ставлю на те, що у Львові неможливо не пити каву ☕😄",
-                    "Зіграємо партію з сицилійським захистом? ♟️"
+                    "Маю топ-3 фільми на вечір, який жанр обираєш? 🍿",
+                    "Гумор і смачна кава — мій улюблений дебют ☕✨"
                 ]
             }
         ];
@@ -1577,7 +1590,8 @@
                     }
                 });
                 bannedUsers = cloudBanned;
-                profiles = [...cloudProfiles, ...defaultProfiles];
+                // Коли є достатньо живих анкет (від 5+), показуємо тільки реальних людей
+                profiles = cloudProfiles.length >= 5 ? cloudProfiles : [...cloudProfiles, ...defaultProfiles];
                 renderCard();
                 renderAdminLists();
             }, err => {
@@ -2112,10 +2126,44 @@
             switchTab(tabName, document.getElementById('nav-btn-' + tabName));
         }
 
+        // =========================================================================
+        // 🎁 ЩОДЕННИЙ БОНУС ЗА ВХІД У ДОДАТОК (DAILY RETENTION)
+        // =========================================================================
+        function checkDailyBonus(isManualClick = false) {
+            const lastLoginDate = localStorage.getItem('chess_last_login_date') || '';
+            const todayStr = new Date().toDateString();
+
+            if (lastLoginDate !== todayStr) {
+                vaultPoints += 15;
+                if (lastLoginDate) dailyStreak += 1;
+                localStorage.setItem('chess_last_login_date', todayStr);
+                saveBalances();
+
+                const btn = document.getElementById('daily-bonus-btn');
+                if (btn) btn.textContent = "✅ Бонус за сьогодні отримано (+15 💎)";
+
+                setTimeout(() => {
+                    playGiftAnimation('💎');
+                    alert(`👑 Щоденний бонус активовано!\nУ твій Королівський Сейф зараховано +15 💎 за вхід у додаток сьогодні (Серія: ${dailyStreak} дн.).`);
+                }, isManualClick ? 50 : 700);
+            } else {
+                const btn = document.getElementById('daily-bonus-btn');
+                if (btn) btn.textContent = "✅ Бонус за сьогодні отримано (+15 💎)";
+                if (isManualClick) {
+                    alert(`Ти вже забрав свій бонус сьогодні (+15 💎)!\nТвоя серія входів: ${dailyStreak} дн. Повертайся завтра за новою нагородою!`);
+                }
+            }
+        }
+
+        function manualClaimDailyBonus() {
+            checkDailyBonus(true);
+        }
+
         updateBalancesUI();
         updateMatchesUI();
         renderCard();
         renderAdminLists();
+        checkDailyBonus(false);
     </script>
 </body>
 </html>
