@@ -1,10 +1,22 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 
 const PORT = Number(process.env.PORT || 10000);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ALLOWED_ORIGIN = process.env.APP_ORIGIN || '';
 const MAX_AGE_SECONDS = 300;
+let firebaseReady = false;
+try {
+  const key = JSON.parse(fs.readFileSync('/etc/secrets/firebase-service-account.json', 'utf8'));
+  if (key.project_id !== 'navziazku') throw new Error('Unexpected Firebase project');
+  initializeApp({ credential: cert(key) });
+  firebaseReady = true;
+} catch (error) {
+  console.error('Firebase initialization unavailable:', error.message);
+}
 
 function send(res, status, body, origin = '') {
   const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
@@ -39,7 +51,7 @@ function verifyTelegram(initData) {
 const server = http.createServer((req, res) => {
   const origin = req.headers.origin || '';
   const corsOrigin = ALLOWED_ORIGIN && origin === ALLOWED_ORIGIN ? origin : '';
-  if (req.url === '/health' && req.method === 'GET') return send(res, 200, { ok: true, configured: Boolean(BOT_TOKEN) });
+  if (req.url === '/health' && req.method === 'GET') return send(res, 200, { ok: true, configured: Boolean(BOT_TOKEN), firebaseReady });
   if (req.url !== '/auth/telegram') return send(res, 404, { error: 'Not found' });
   if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
   if (req.method === 'OPTIONS') {
@@ -47,19 +59,19 @@ const server = http.createServer((req, res) => {
     return res.end();
   }
   if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' }, corsOrigin);
-  if (!BOT_TOKEN || !ALLOWED_ORIGIN) return send(res, 503, { error: 'Authentication not configured' }, corsOrigin);
+  if (!BOT_TOKEN || !ALLOWED_ORIGIN || !firebaseReady) return send(res, 503, { error: 'Authentication not configured' }, corsOrigin);
   let data = '';
   req.on('data', chunk => {
     data += chunk;
     if (data.length > 16384) req.destroy();
   });
-  req.on('end', () => {
+  req.on('end', async () => {
     try {
       const user = verifyTelegram(JSON.parse(data).initData);
       if (!user) return send(res, 401, { error: 'Invalid or expired Telegram authentication' }, corsOrigin);
-      // This response is NOT a session token. Integrate server-side sessions or Firebase custom tokens before using it to authorize data access.
-      return send(res, 200, { verified: true, user }, corsOrigin);
-    } catch { return send(res, 400, { error: 'Invalid JSON' }, corsOrigin); }
+      const token = await getAuth().createCustomToken('telegram:' + user.id);
+      return send(res, 200, { verified: true, token, user }, corsOrigin);
+    } catch (error) { console.error('Authentication failed:', error.message); return send(res, 500, { error: 'Authentication unavailable' }, corsOrigin); }
   });
 });
 server.listen(PORT, '0.0.0.0', () => console.log('Telegram auth server listening on port ' + PORT));
