@@ -2112,6 +2112,22 @@
                     name.textContent = 'Користувач #' + String(p.fromUserId || '').slice(-6);
                     city.textContent = 'Повідомлення для тебе';
                     avatar.removeAttribute('src');
+                    // Resolve the sender's public profile; never trust the recipient fields
+                    // saved on the move as the sender's identity.
+                    const senderId = String(p.fromUserId || '');
+                    if (/^\d+$/.test(senderId) && db) {
+                        db.collection('ez_users').doc(senderId).get().then(senderDoc => {
+                            if (!senderDoc.exists || !card.isConnected) return;
+                            const sender = senderDoc.data() || {};
+                            if (sender.isBanned) return;
+                            const senderName = String(sender.name || '').trim();
+                            if (senderName) name.textContent = senderName;
+                            const senderCity = String(sender.city || '').trim();
+                            city.textContent = senderCity || 'Повідомлення для тебе';
+                            const senderImage = String(sender.img || '');
+                            if (/^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/i.test(senderImage)) avatar.src = senderImage;
+                        }).catch(err => console.warn('Sender profile:', err.code || err.message));
+                    }
                 }
                 const username = p.direction === 'sent' ? String(p.targetUsername || '') : '';
                 if (/^[a-zA-Z0-9_]{5,32}$/.test(username)) {
