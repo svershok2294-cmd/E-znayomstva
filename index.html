@@ -1406,6 +1406,7 @@
                 document.getElementById('db-status-dot').classList.add('online');
                 if (status) status.textContent = '🟢 FIREBASE: TELEGRAM АВТОРИЗОВАНО';
                 startFirestoreListeners();
+                refreshRegistrationState();
             } catch (error) {
                 isFirebaseConnected = false;
                 verifiedTelegramUser = null;
@@ -1970,7 +1971,25 @@
             el.classList.toggle('selected');
         }
 
+        async function refreshRegistrationState() {
+            try {
+                const uid = String(verifiedTelegramUser.id);
+                const snap = await db.collection('ez_users').doc(uid).get();
+                if (snap.exists) {
+                    document.getElementById('reg-submit-btn').textContent = "♞ Оновити анкету";
+                    localStorage.setItem('chess_registration_reward_' + uid, '1');
+                }
+            } catch (error) {
+                console.warn("Profile lookup failed:", error.code || error.message);
+            }
+        }
+        let registrationSaving = false;
         async function submitRegistration() {
+            if (registrationSaving) return;
+            if (!isFirebaseConnected || !db || !verifiedTelegramUser || !firebase.auth().currentUser) {
+                alert("Дочекайся підтвердження входу через Telegram.");
+                return;
+            }
             const name = document.getElementById('reg-name').value.trim() || "Гравець";
             const age = document.getElementById('reg-age').value.trim() || "22";
             const city = document.getElementById('reg-city').value.trim() || "Україна";
@@ -1990,10 +2009,6 @@
                 id: "#" + String(currentUserId).slice(-4),
                 tgId: String(currentUserId),
                 username: currentUsername,
-                isVip: true,
-                isBanned: false,
-                trustScore: 99,
-                trustLabel: "🛡️ 99% Верифіковано",
                 name: `${name}, ${age}`,
                 city: `${city} • Онлайн`,
                 img: uploadedPhotoDataUrl,
@@ -2003,27 +2018,53 @@
                 icebreakers: [
                     `Привіт, ${name}! Класна відповідь в анкеті ✨`,
                     `Зіграємо партію за чашкою кави у місті ${city}? ☕`
-                ],
-                createdAt: Date.now()
+                ]
             };
 
-            const btn = document.getElementById('reg-submit-btn');
-            btn.textContent = "⏳ Збереження в хмару...";
-
-            profiles.splice(currentIndex, 0, newProfileData);
-            renderCard();
-
-            if (isFirebaseConnected && db) {
-                try {
-                    await db.collection('ez_users').doc(String(currentUserId)).set(newProfileData);
-                } catch (e) {
-                    console.warn("Помилка запису в Firestore:", e);
-                }
+            const uid = String(verifiedTelegramUser.id);
+            if (String(currentUserId) !== uid || firebase.auth().currentUser.uid !== 'telegram:' + uid) {
+                alert("Telegram ID не збігається з Firebase.");
+                return;
             }
-
-            btn.textContent = "♞ Зберегти анкету в Firebase (+30 💎)";
-            addVaultPoints(30);
-            openTabDirectly('swipe');
+            const btn = document.getElementById('reg-submit-btn');
+            registrationSaving = true;
+            btn.disabled = true;
+            btn.textContent = "⏳ Збереження...";
+            try {
+                const ref = db.collection('ez_users').doc(uid);
+                const firstRegistration = await db.runTransaction(async tx => {
+                    const snap = await tx.get(ref);
+                    if (snap.exists) {
+                        tx.update(ref, { name: newProfileData.name, city: newProfileData.city,
+                            img: newProfileData.img, tags: newProfileData.tags,
+                            question: newProfileData.question, answer: newProfileData.answer,
+                            icebreakers: newProfileData.icebreakers });
+                        return false;
+                    }
+                    tx.set(ref, { ...newProfileData, isVip: false, isBanned: false,
+                        trustScore: 0, trustLabel: "Новий профіль",
+                        createdAt: Date.now(), registrationRewardGranted: true });
+                    return true;
+                });
+                if (firstRegistration && localStorage.getItem('chess_registration_reward_' + uid) !== '1') {
+                    // Display-only points: server ledger required before redeemable rewards.
+                    localStorage.setItem('chess_registration_reward_' + uid, '1');
+                    addVaultPoints(30);
+                }
+                const index = profiles.findIndex(p => String(p.tgId) === uid);
+                if (index >= 0) profiles[index] = { ...profiles[index], ...newProfileData };
+                else profiles.splice(currentIndex, 0, newProfileData);
+                renderCard();
+                btn.textContent = "♞ Оновити анкету";
+                openTabDirectly('swipe');
+            } catch (error) {
+                console.warn("Firestore registration error:", error.code || error.message);
+                alert("Не вдалося зберегти анкету. Перевір Firestore Rules.");
+            } finally {
+                registrationSaving = false;
+                btn.disabled = false;
+                if (btn.textContent.startsWith("⏳")) btn.textContent = "♞ Зберегти анкету";
+            }
         }
 
         function updateMatchesUI() {
