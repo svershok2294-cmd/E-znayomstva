@@ -1003,6 +1003,12 @@
         .move-reply-row input{flex:1;min-width:0;background:#0c0c11;color:white;border:1px solid #46404b;border-radius:10px;padding:11px;font-size:13px}
         .move-reply-row input:focus{outline:1px solid #f5c542}
         .conversation-item{display:flex;gap:12px;align-items:center;width:100%;text-align:left;color:#f4f4f5;background:linear-gradient(125deg,#1d1b23,#111116);border:1px solid rgba(245,197,66,.25);border-radius:16px;padding:13px;margin:9px 0;cursor:pointer}
+        .conversation-item.has-unread{border-color:rgba(245,197,66,.75);background:linear-gradient(125deg,#302719,#17151a);box-shadow:inset 3px 0 0 #f5c542}
+        .conversation-item.has-unread .conversation-preview{color:#f3e0ac;font-weight:650}
+        .conversation-title-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}
+        .conversation-title-row strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .conversation-last-time{flex-shrink:0;font-size:10px;color:#aaa3a2;font-weight:500}
+        .conversation-item.has-unread .conversation-last-time{color:#f5c542}
         .conversation-item img,.conversation-header img{width:46px;height:46px;border-radius:50%;object-fit:cover;background:#25242b}
         .conversation-item .conversation-info{flex:1;min-width:0}
         .conversation-item .conversation-preview{font-size:12px;color:#a6a6b0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:5px}
@@ -2291,12 +2297,26 @@
                     appendConversationAvatar(btn,p);
                     const info = document.createElement('div'); info.className = 'conversation-info';
                     const title = document.createElement('strong'); title.textContent = p.name;
+                    const titleRow = document.createElement('div'); titleRow.className = 'conversation-title-row';
                     const preview = document.createElement('div'); preview.className = 'conversation-preview';
                     const last = messages.at(-1);
                     preview.textContent = (last.direction === 'sent' ? 'Ви: ' : '') + String(last.myReply || '');
-                    info.append(title,preview); btn.appendChild(info);
+                    const lastTime = document.createElement('time'); lastTime.className = 'conversation-last-time';
+                    const lastStamp = Number(last.createdAt) || 0;
+                    if (lastStamp > 0) {
+                        const lastDate = new Date(lastStamp);
+                        const today = new Date();
+                        lastTime.textContent = lastDate.toDateString() === today.toDateString()
+                            ? lastDate.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})
+                            : lastDate.toLocaleDateString('uk-UA',{day:'2-digit',month:'2-digit'});
+                        lastTime.dateTime = lastDate.toISOString();
+                        lastTime.title = lastDate.toLocaleString('uk-UA');
+                    }
+                    titleRow.append(title,lastTime);
+                    info.append(titleRow,preview); btn.appendChild(info);
                     const unread = messages.filter(m => m.direction === 'received' && (Number(m.createdAt) || 0) > (Number(conversationSeen[otherId]) || 0)).length;
                     if (unread) {
+                        btn.classList.add('has-unread');
                         const count = document.createElement('span'); count.className = 'conversation-unread'; count.textContent = String(unread);
                         btn.appendChild(count);
                     }
