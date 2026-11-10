@@ -1424,7 +1424,8 @@
             } catch (error) {
                 isFirebaseConnected = false;
                 verifiedTelegramUser = null;
-                const safeCode = /^HTTP_\d{3}$/.test(error.message) ? error.message :
+                const safeCode = error instanceof TypeError ? 'NETWORK_OR_CORS' :
+                    /^HTTP_\d{3}$/.test(error.message) ? error.message :
                     ['FIREBASE_SDK','TELEGRAM_INITDATA'].includes(error.message) ? error.message :
                     /^auth\/[a-z-]{1,60}$/.test(error.code || '') ? error.code : 'UNKNOWN';
                 showStage('Вхід: ' + stage + ' / ' + safeCode);
