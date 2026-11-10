@@ -61,12 +61,21 @@ service cloud.firestore {
     match /ez_moves/{moveId} {
       allow create: if telegramUser()
         && request.resource.data.keys().hasOnly([
-          'fromUserId', 'targetUsername', 'name', 'city', 'img',
+          'fromUserId', 'targetUserId', 'targetUsername', 'name', 'city', 'img',
           'myReply', 'createdAt'
         ])
+        && request.resource.data.fromUserId is string
+        && request.resource.data.targetUserId is string
+        && request.resource.data.targetUserId.matches('[0-9]+')
+        && request.resource.data.targetUserId != request.resource.data.fromUserId
+        && exists(/databases/$(database)/documents/ez_users/$(request.resource.data.targetUserId))
+        && request.resource.data.myReply is string
+        && request.resource.data.myReply.size() <= 1000
         && request.auth.uid == 'telegram:' + request.resource.data.fromUserId;
       allow get, list: if telegramUser()
-        && request.auth.uid == 'telegram:' + resource.data.fromUserId;
+        && (request.auth.uid == 'telegram:' + resource.data.fromUserId
+          || (resource.data.keys().hasAny(['targetUserId'])
+            && request.auth.uid == 'telegram:' + resource.data.targetUserId));
       allow update, delete: if false;
     }
 
