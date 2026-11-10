@@ -994,7 +994,15 @@
             padding: 18px;
             justify-content: space-between;
         }
-    </style>
+    .move-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;margin:10px 0 16px;background:linear-gradient(130deg,#1c1b22,#121217);border:1px solid rgba(245,197,66,.26);border-radius:16px;color:#c8c8ce;font-size:12px}
+        .move-toolbar button,.move-reply-btn{border:1px solid rgba(245,197,66,.42);background:#252119;color:#f5c542;border-radius:11px;padding:9px 12px;font-weight:800;cursor:pointer}
+        #matches-container .bw-card{border-radius:16px;margin-bottom:12px;padding:14px;background:linear-gradient(145deg,#1b1b24,#101015);box-shadow:0 6px 20px rgba(0,0,0,.22)}
+        #matches-container .bw-card.incoming-move{border-left:3px solid #f5c542}
+        #matches-container .bw-card.outgoing-move{border-left:3px solid #38bdf8}
+        .move-reply-row{display:flex;gap:8px;margin-top:10px;align-items:center}
+        .move-reply-row input{flex:1;min-width:0;background:#0c0c11;color:white;border:1px solid #46404b;border-radius:10px;padding:11px;font-size:13px}
+        .move-reply-row input:focus{outline:1px solid #f5c542}
+        </style>
 </head>
 <body>
 
@@ -1204,7 +1212,8 @@
             <!-- Вкладка 4: Ходи та Відповіді -->
             <div id="tab-matches" class="tab-content">
                 <div class="matches-wrapper">
-                    <div class="section-title">♟️ Твої ходи, подарунки та контакти (Realtime)</div>
+                    <div class="section-title">♟️ Повідомлення та ходи</div>
+                    <div class="move-toolbar"><span>Листування в реальному часі</span><button type="button" id="move-sound-toggle" onclick="toggleMoveSound()">🔔 Звук увімкнено</button></div>
                     <div id="matches-container"></div>
                 </div>
             </div>
@@ -1585,6 +1594,68 @@
         let currentIndex = 0;
         let sentResponses = [];
         let receivedResponses = [];
+        let moveSoundEnabled = true;
+        let audioContextForMoves = null;
+        let incomingMoveInitialized = false;
+        let knownIncomingMoveIds = new Set();
+        function toggleMoveSound() {
+            moveSoundEnabled = !moveSoundEnabled;
+            const btn = document.getElementById('move-sound-toggle');
+            if (btn) btn.textContent = moveSoundEnabled ? '🔔 Звук увімкнено' : '🔕 Без звуку';
+            if (moveSoundEnabled) {
+                try {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContextClass) {
+                        audioContextForMoves = audioContextForMoves || new AudioContextClass();
+                        audioContextForMoves.resume().catch(() => {});
+                    }
+                } catch (e) { console.warn('Audio unavailable:', e); }
+            }
+        }
+        function playIncomingMoveSound() {
+            if (!moveSoundEnabled) return;
+            try {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) return;
+                const ctx = audioContextForMoves || new AudioContextClass();
+                audioContextForMoves = ctx;
+                if (ctx.state !== 'running') return;
+                [660, 880].forEach((freq, i) => {
+                    const osc = ctx.createOscillator(), gain = ctx.createGain();
+                    osc.type = 'sine'; osc.frequency.value = freq;
+                    const t = ctx.currentTime + i * 0.13;
+                    gain.gain.setValueAtTime(0.0001, t);
+                    gain.gain.exponentialRampToValueAtTime(0.11, t + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+                    osc.connect(gain); gain.connect(ctx.destination);
+                    osc.start(t); osc.stop(t + 0.2);
+                });
+            } catch (e) { console.warn('Notification sound:', e); }
+        }
+        async function sendReplyToMove(senderId, message, button) {
+            const text = String(message || '').trim();
+            if (!text || text.length > 1000) { alert('Напиши відповідь до 1000 символів.'); return false; }
+            if (!verifiedTelegramUser || !isFirebaseConnected || !db) { alert('Спочатку підтвердь вхід через Telegram.'); return false; }
+            if (!/^\d+$/.test(String(senderId)) || String(senderId) === String(verifiedTelegramUser.id)) return false;
+            button.disabled = true;
+            try {
+                const doc = await db.collection('ez_users').doc(String(senderId)).get();
+                if (!doc.exists || doc.data().isBanned) throw Error('Анкету співрозмовника не знайдено.');
+                const target = doc.data();
+                await db.collection('ez_moves').add({
+                    fromUserId: String(verifiedTelegramUser.id),
+                    targetUserId: String(senderId),
+                    targetUsername: String(target.username || ''),
+                    name: String(target.name || ''),
+                    city: String(target.city || ''),
+                    img: String(target.img || ''),
+                    myReply: text,
+                    createdAt: Date.now()
+                });
+                return true;
+            } catch (e) { alert('Не вдалося надіслати відповідь: ' + (e.message || 'Помилка Firebase')); return false; }
+            finally { button.disabled = false; }
+        }
         let bannedUsers = [];
 
         // Слухачі реального часу Firebase Firestore
@@ -1633,6 +1704,10 @@
                 updateMatchesUI();
             }, err => console.warn('Outgoing moves:', err.code || err.message));
             db.collection('ez_moves').where('targetUserId', '==', myId).limit(30).onSnapshot(snapshot => {
+                const fresh = snapshot.docs.filter(doc => !knownIncomingMoveIds.has(doc.id) && !doc.metadata.hasPendingWrites);
+                if (incomingMoveInitialized && fresh.length) playIncomingMoveSound();
+                snapshot.docs.forEach(doc => knownIncomingMoveIds.add(doc.id));
+                incomingMoveInitialized = true;
                 receivedResponses = snapshot.docs.map(doc => ({ moveId: doc.id, ...doc.data(), direction: 'received' }));
                 updateMatchesUI();
             }, err => console.warn('Incoming moves:', err.code || err.message));
@@ -2087,7 +2162,7 @@
             const allMoves = [...receivedResponses, ...sentResponses].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
             allMoves.forEach(p => {
                 const card = document.createElement('div');
-                card.className = 'bw-card';
+                card.className = 'bw-card ' + (p.direction === 'received' ? 'incoming-move' : 'outgoing-move');
                 const header = document.createElement('div');
                 header.className = 'bw-card-header';
                 const avatar = document.createElement('img');
@@ -2146,6 +2221,23 @@
                 strong.textContent = String(p.myReply || '');
                 reply.appendChild(strong);
                 card.append(header, reply);
+                if (p.direction === 'received') {
+                    const replyRow = document.createElement('div');
+                    replyRow.className = 'move-reply-row';
+                    const replyInput = document.createElement('input');
+                    replyInput.type = 'text';
+                    replyInput.maxLength = 1000;
+                    replyInput.placeholder = 'Напиши відповідь…';
+                    replyInput.setAttribute('aria-label', 'Відповідь на вхідний хід');
+                    const replyButton = document.createElement('button');
+                    replyButton.className = 'move-reply-btn';
+                    replyButton.textContent = '♞ Відповісти';
+                    replyButton.addEventListener('click', async () => {
+                        if (await sendReplyToMove(p.fromUserId, replyInput.value, replyButton)) replyInput.value = '';
+                    });
+                    replyRow.append(replyInput, replyButton);
+                    card.appendChild(replyRow);
+                }
                 container.appendChild(card);
             });
         }
