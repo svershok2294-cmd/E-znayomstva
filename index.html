@@ -1007,6 +1007,7 @@
         #dating-filter-count{font-size:12px;color:#c7bba1}
         .dating-filter-controls{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr);gap:8px}
         .dating-filter-controls input{min-width:0;width:100%;box-sizing:border-box;background:#0e0d12;border:1px solid #6a5328;border-radius:9px;color:#fff;padding:10px;font-size:13px}
+        .dating-filter-controls #dating-interest-filter{grid-column:1/-1}
         .dating-filter-controls button{grid-column:1/-1;background:#3a301d;border:1px solid #a88335;color:#f5c542;border-radius:9px;padding:8px;font-weight:700}
         .conversation-item{display:flex;gap:12px;align-items:center;width:100%;text-align:left;color:#f4f4f5;background:linear-gradient(125deg,#1d1b23,#111116);border:1px solid rgba(245,197,66,.25);border-radius:14px;padding:10px 12px;margin:7px 0;cursor:pointer}
         .conversation-item.has-unread{border-color:rgba(245,197,66,.75);background:linear-gradient(125deg,#302719,#17151a);box-shadow:inset 3px 0 0 #f5c542}
@@ -1068,6 +1069,7 @@
                         <input id="dating-city-filter" type="search" placeholder="Місто (наприклад, Одеса)" aria-label="Фільтр за містом" maxlength="80">
                         <input id="dating-age-min" type="number" min="18" max="99" placeholder="Від 18" aria-label="Мінімальний вік">
                         <input id="dating-age-max" type="number" min="18" max="99" placeholder="До 99" aria-label="Максимальний вік">
+                        <input id="dating-interest-filter" type="search" placeholder="Інтерес (кава, море…)" aria-label="Пошук за інтересами" maxlength="60">
                         <button id="dating-filter-reset" type="button">Скинути</button>
                     </div>
                 </section>
@@ -1633,7 +1635,15 @@
         // Demo cards remain visible only before authenticated Firestore data arrives.
         let profiles = [];
         let allDatingProfiles = [];
-        const datingFilter = {city:'',min:'',max:''};
+        const datingFilter = {city:'',min:'',max:'',interest:''};
+        function datingFilterStorageKey() {
+            return 'ez_dating_filters_' + String(verifiedTelegramUser?.id || 'guest');
+        }
+        function persistDatingFilters() {
+            if (!verifiedTelegramUser) return;
+            try { localStorage.setItem(datingFilterStorageKey(), JSON.stringify(datingFilter)); }
+            catch (error) { console.warn('Cannot save dating filters:', error); }
+        }
         function profileAge(profile) {
             const explicit = Number(profile.age);
             if (Number.isInteger(explicit) && explicit >= 18 && explicit <= 99) return explicit;
@@ -1642,10 +1652,12 @@
         }
         function applyDatingFilters() {
             const city = datingFilter.city.trim().toLocaleLowerCase('uk-UA');
+            const interest = datingFilter.interest.trim().toLocaleLowerCase('uk-UA');
             const min = datingFilter.min === '' ? null : Number(datingFilter.min);
             const max = datingFilter.max === '' ? null : Number(datingFilter.max);
             profiles = allDatingProfiles.filter(p => {
                 if (city && !String(p.city || '').toLocaleLowerCase('uk-UA').includes(city)) return false;
+                if (interest && !(Array.isArray(p.tags) ? p.tags : []).some(tag => String(tag).toLocaleLowerCase('uk-UA').includes(interest))) return false;
                 if (min !== null || max !== null) {
                     const age = profileAge(p);
                     if (age === null || (min !== null && age < min) || (max !== null && age > max)) return false;
@@ -1661,15 +1673,26 @@
             const city = document.getElementById('dating-city-filter');
             const min = document.getElementById('dating-age-min');
             const max = document.getElementById('dating-age-max');
+            const interest = document.getElementById('dating-interest-filter');
             if (!city || city.dataset.ready) return;
+            try {
+                const saved = JSON.parse(localStorage.getItem(datingFilterStorageKey()) || '{}');
+                for (const key of ['city','min','max','interest']) datingFilter[key] = typeof saved[key] === 'string' ? saved[key].slice(0,80) : '';
+            } catch (_) {}
             city.dataset.ready = '1';
-            [city,min,max].forEach((el,i) => el.addEventListener('input', () => {
-                datingFilter[['city','min','max'][i]] = el.value;
-                applyDatingFilters();
-            }));
+            [city,min,max,interest].forEach((el,i) => {
+                const key = ['city','min','max','interest'][i];
+                el.value = datingFilter[key];
+                el.addEventListener('input', () => {
+                    datingFilter[key] = el.value;
+                    persistDatingFilters();
+                    applyDatingFilters();
+                });
+            });
             document.getElementById('dating-filter-reset').addEventListener('click', () => {
-                [city,min,max].forEach(el => {el.value = '';});
-                datingFilter.city = datingFilter.min = datingFilter.max = '';
+                [city,min,max,interest].forEach(el => {el.value = '';});
+                datingFilter.city = datingFilter.min = datingFilter.max = datingFilter.interest = '';
+                persistDatingFilters();
                 applyDatingFilters();
             });
         }
