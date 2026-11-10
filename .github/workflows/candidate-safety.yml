@@ -24,3 +24,5 @@ jobs:
         run: node --check server.js
       - name: Check production candidate safeguards
         run: node scripts/check-production-candidate.mjs
+      - name: Test swipe behavior without Firebase
+        run: node scripts/test-candidate-swipe.mjs
