@@ -1425,23 +1425,16 @@
             document.getElementById('reg-name').value = tgUser.first_name;
         }
 
-        if (!localStorage.getItem('chess_owner_id')) {
-            localStorage.setItem('chess_owner_id', String(currentUserId));
-        }
-        const ownerId = localStorage.getItem('chess_owner_id');
-        let isViewingAsAdmin = (String(currentUserId) === String(ownerId));
+        // Admin privileges must come from verified server-side Firebase claims.
+        // Until a trusted admin claim is implemented, disable privileged UI.
+        let isViewingAsAdmin = false;
         document.getElementById('my-tg-id-display').textContent = `TG ID: ${currentUserId}`;
+        document.querySelectorAll('.admin-only-el').forEach(el => {
+            el.style.display = 'none';
+        });
 
         function toggleAdminPreview() {
-            if (String(currentUserId) !== String(ownerId)) return;
-            isViewingAsAdmin = !isViewingAsAdmin;
-            document.querySelectorAll('.admin-only-el').forEach(el => {
-                el.style.display = isViewingAsAdmin ? '' : 'none';
-            });
-            document.getElementById('admin-title').textContent = isViewingAsAdmin ? '♔ ВЛАД' : '👁 ЮЗЕР';
-            if (!isViewingAsAdmin && document.getElementById('tab-admin').classList.contains('active')) {
-                openTabDirectly('swipe');
-            }
+            alert('Адмін-доступ потребує захищеної серверної перевірки.');
         }
 
         // --- БАЛАНСИ ТА СЕЙФ ---
@@ -1621,16 +1614,8 @@
                 document.getElementById('firebase-admin-status').textContent = "⚠️ ПЕРЕВІР FIRESTORE RULES (ДОЗВОЛЬ READ/WRITE ДЛЯ ez_*)";
             });
 
-            db.collection('ez_reports').orderBy('createdAt', 'desc').limit(30).onSnapshot(snapshot => {
-                const cloudReports = [];
-                snapshot.forEach(doc => {
-                    cloudReports.push({ id: doc.id, ...doc.data() });
-                });
-                if (cloudReports.length > 0) {
-                    reportsData = cloudReports;
-                    renderAdminLists();
-                }
-            }, err => console.warn(err));
+            // Reports contain private data. Read only through a future
+            // verified admin backend, never from every signed-in client.
 
             db.collection('ez_moves').where('fromUserId', '==', String(currentUserId)).limit(30).onSnapshot(snapshot => {
                 const moves = [];
