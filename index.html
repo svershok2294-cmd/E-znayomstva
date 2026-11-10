@@ -1619,6 +1619,39 @@
         let conversationProfiles = new Map();
         let conversationSeen = {};
         const conversationDrafts = new Map();
+        const remoteReadReceipts = new Map();
+        const readReceiptSubscriptions = new Map();
+        const readReceiptWrites = new Map();
+        function subscribeToReadReceipt(otherId) {
+            if (!db || !verifiedTelegramUser || readReceiptSubscriptions.has(otherId)) return;
+            const ownId = String(verifiedTelegramUser.id);
+            const key = otherId + '_' + ownId; // Recipient of my messages, then sender (me).
+            const unsubscribe = db.collection('ez_chat_reads').doc(key).onSnapshot(doc => {
+                const next = doc.exists ? Number(doc.data().seenAt) || 0 : 0;
+                if (remoteReadReceipts.get(otherId) !== next) {
+                    remoteReadReceipts.set(otherId, next);
+                    if (activeConversationId === otherId) updateMatchesUI();
+                }
+            }, error => {
+                console.warn('Read receipt not available:', error.code || error.message);
+                unsubscribe();
+                readReceiptSubscriptions.delete(otherId);
+            });
+            readReceiptSubscriptions.set(otherId, unsubscribe);
+        }
+        function publishReadReceipt(otherId, messages) {
+            if (!db || !verifiedTelegramUser) return;
+            const newest = Math.max(0, ...messages.filter(m => m.direction === 'received').map(m => Number(m.createdAt) || 0));
+            if (!newest || newest <= (readReceiptWrites.get(otherId) || 0)) return;
+            const ownId = String(verifiedTelegramUser.id);
+            readReceiptWrites.set(otherId, newest);
+            const ref = db.collection('ez_chat_reads').doc(ownId + '_' + otherId);
+            ref.set({ recipientId: ownId, senderId: otherId, seenAt: newest }, { merge: true })
+                .catch(error => {
+                    readReceiptWrites.delete(otherId);
+                    console.warn('Cannot publish read receipt:', error.code || error.message);
+                });
+        }
         function restoreConversationSeen() {
             try { conversationSeen = JSON.parse(localStorage.getItem('ez_chat_seen_' + String(verifiedTelegramUser?.id || '')) || '{}') || {}; }
             catch (_) { conversationSeen = {}; }
@@ -1636,12 +1669,14 @@
             return threads;
         }
         function markConversationSeen(otherId, messages) {
+            publishReadReceipt(otherId, messages);
             const newest = Math.max(0, ...messages.filter(m => m.direction === 'received').map(m => Number(m.createdAt) || 0));
             conversationSeen[otherId] = Math.max(Number(conversationSeen[otherId]) || 0, newest);
             try { localStorage.setItem('ez_chat_seen_' + String(verifiedTelegramUser.id), JSON.stringify(conversationSeen)); } catch (_) {}
         }
         function openConversation(otherId) {
             activeConversationId = String(otherId);
+            subscribeToReadReceipt(activeConversationId);
             updateMatchesUI();
         }
         function closeConversation() { activeConversationId = null; updateMatchesUI(); }
@@ -2265,6 +2300,7 @@
             }
             list.hidden = true; thread.hidden = false;
             const otherId = activeConversationId, messages = threads.get(otherId) || [];
+            subscribeToReadReceipt(otherId);
             loadConversationProfile(otherId);
             const p = conversationProfiles.get(otherId) || {name:'Користувач #' + otherId.slice(-6),img:''};
             const header = document.createElement('div'); header.className = 'conversation-header';
@@ -2280,7 +2316,17 @@
                 const time = document.createElement('small'); time.className = 'conversation-time';
                 const t = Number(m.createdAt);
                 time.textContent = Number.isFinite(t) && t > 0 ? new Date(t).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
-                bubble.append(msg,time); body.appendChild(bubble);
+                bubble.append(msg,time);
+                if (m.direction === 'sent') {
+                    const receipt = document.createElement('small');
+                    receipt.className = 'conversation-time';
+                    const seenAt = remoteReadReceipts.get(otherId) || 0;
+                    const read = seenAt > 0 && Number(m.createdAt) <= seenAt;
+                    receipt.textContent = read ? '✓✓ Прочитано' : '✓ Надіслано';
+                    receipt.style.cssText = read ? 'color:#f5c542' : 'opacity:.7';
+                    bubble.appendChild(receipt);
+                }
+                body.appendChild(bubble);
             });
             const compose = document.createElement('div'); compose.className = 'conversation-compose';
             const input = document.createElement('input'); input.placeholder = 'Напиши повідомлення…'; input.maxLength = 1000;
