@@ -1863,11 +1863,35 @@
                 });
             } catch (e) { console.warn('Notification sound:', e); }
         }
+        // UI cooldown only. A trusted server-side rate limit is still needed.
+        const messageCooldownMs = 5000;
+        const lastMessageTimes = new Map();
+        function messageCooldownRemaining(targetId) {
+            const id = String(targetId || '');
+            const key = 'ez_last_message_' + String(verifiedTelegramUser?.id || '') + '_' + id;
+            let persisted = 0;
+            try { persisted = Number(localStorage.getItem(key)) || 0; } catch (_) {}
+            const last = Math.max(lastMessageTimes.get(id) || 0, persisted);
+            return Math.max(0, messageCooldownMs - (Date.now() - last));
+        }
+        function recordMessageSent(targetId) {
+            const id = String(targetId || '');
+            const now = Date.now();
+            lastMessageTimes.set(id, now);
+            try { localStorage.setItem('ez_last_message_' + String(verifiedTelegramUser?.id || '') + '_' + id, String(now)); } catch (_) {}
+        }
+        function warnMessageCooldown(targetId) {
+            const remaining = messageCooldownRemaining(targetId);
+            if (!remaining) return false;
+            alert('⏳ Зачекай ' + Math.ceil(remaining / 1000) + ' с перед наступним повідомленням цьому користувачу.');
+            return true;
+        }
         async function sendReplyToMove(senderId, message, button) {
             const text = String(message || '').trim();
             if (!text || text.length > 1000) { alert('Напиши відповідь до 1000 символів.'); return false; }
             if (!verifiedTelegramUser || !isFirebaseConnected || !db) { alert('Спочатку підтвердь вхід через Telegram.'); return false; }
             if (!/^\d+$/.test(String(senderId)) || String(senderId) === String(verifiedTelegramUser.id)) return false;
+            if (warnMessageCooldown(senderId)) return false;
             button.disabled = true;
             try {
                 const doc = await db.collection('ez_users').doc(String(senderId)).get();
@@ -1883,6 +1907,7 @@
                     myReply: text,
                     createdAt: Date.now()
                 });
+                recordMessageSent(senderId);
                 return true;
             } catch (e) { alert('Не вдалося надіслати відповідь: ' + (e.message || 'Помилка Firebase')); return false; }
             finally { button.disabled = false; }
@@ -2214,6 +2239,12 @@
 
             if (isLike) {
                 const targetProfile = profiles[currentIndex];
+                const targetId = String(targetProfile?.docId || targetProfile?.tgId || '');
+                if (warnMessageCooldown(targetId)) {
+                    card.style.transform = 'translateX(0) rotate(0)';
+                    card.style.opacity = '1';
+                    return;
+                }
                 const moveObj = {
                     fromUserId: String(verifiedTelegramUser.id),
                     targetUserId: String(targetProfile.docId || targetProfile.tgId || ''),
@@ -2225,7 +2256,7 @@
                     createdAt: Date.now()
                 };
                 if (isFirebaseConnected && db && verifiedTelegramUser && /^\d+$/.test(moveObj.targetUserId) && moveObj.targetUserId !== moveObj.fromUserId) {
-                    db.collection('ez_moves').add(moveObj).catch(e => {
+                    db.collection('ez_moves').add(moveObj).then(() => recordMessageSent(moveObj.targetUserId)).catch(e => {
                         console.warn('Move save failed:', e.code || e.message);
                         alert("Не вдалося зберегти хід. Перевір підключення до Firebase.");
                     });
