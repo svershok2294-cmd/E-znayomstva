@@ -1030,6 +1030,9 @@
         .conversation-bubble.mine{align-self:flex-end;background:#4a3b1c;border:1px solid #8c6a27;color:#fff3d6;border-bottom-right-radius:4px}
         .conversation-bubble.theirs{align-self:flex-start;background:#24232c;border:1px solid #44414d;color:#f4f4f5;border-bottom-left-radius:4px}
         .conversation-time{display:block;font-size:10px;opacity:.65;margin-top:5px;text-align:right}
+        .conversation-block-btn{margin-left:auto;border:1px solid #745b32;border-radius:8px;background:#251d1d;color:#f5c542;padding:7px 9px;cursor:pointer}
+        .blocked-user-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;font-size:12px}
+        .blocked-user-row button{border:1px solid #a88335;background:#302719;color:#f5c542;padding:7px;border-radius:8px}
         .conversation-compose{display:flex;gap:8px;padding:12px 0 8px;flex-shrink:0;background:#09090b;position:relative;z-index:2}
         #conversation-thread:not([hidden]){display:flex;flex-direction:column;height:calc(100dvh - 305px);min-height:260px;max-height:none;overflow:hidden;scroll-margin-bottom:85px}
         #conversation-thread .conversation-header{flex-shrink:0}
@@ -1082,6 +1085,7 @@
                                 <span class="vip-crown-pill" id="p-vip-tag">👑 VIP</span>
                                 <div class="top-actions-right">
                                     <button class="report-user-btn" onclick="reportCurrentProfile()">⚠️ Скарга</button>
+                                    <button class="report-user-btn" onclick="blockCurrentProfile()">🚫 Блок</button>
                                     <button class="quick-ban-btn admin-only-el" onclick="banFromSwipe()">🚫 Бан</button>
                                 </div>
                             </div>
@@ -1650,12 +1654,43 @@
             const match = String(profile.name || '').match(/(?:,\s*|\s+)(\d{2})\s*$/);
             return match ? Number(match[1]) : null;
         }
+        const personalBlockedIds = new Set();
+        let personalBlocksLoaded = false;
+        async function togglePersonalBlock(targetId) {
+            const ownerId = String(verifiedTelegramUser?.id || '');
+            targetId = String(targetId || '');
+            if (!db || !/^\d+$/.test(ownerId) || !/^\d+$/.test(targetId) || ownerId === targetId) return;
+            const alreadyBlocked = personalBlockedIds.has(targetId);
+            const label = conversationProfiles.get(targetId)?.name || 'цього користувача';
+            if (!confirm(alreadyBlocked ? 'Розблокувати ' + label + '?' : 'Заблокувати ' + label + '? Нові повідомлення між вами будуть заборонені після публікації правил Firebase.')) return;
+            try {
+                const ref = db.collection('ez_blocks').doc(ownerId).collection('users').doc(targetId);
+                if (alreadyBlocked) await ref.delete();
+                else await ref.set({blockedAt:Date.now()});
+                alert(alreadyBlocked ? '✅ Користувача розблоковано.' : '✅ Користувача додано до чорного списку.');
+            } catch (e) {
+                console.warn('Personal block failed:',e.code || e.message);
+                alert('❌ Не вдалося змінити чорний список. Можливо, правила Firebase ще не опубліковані.');
+            }
+        }
+        function watchPersonalBlocks() {
+            if (!db || !verifiedTelegramUser) return;
+            const ownerId = String(verifiedTelegramUser.id);
+            db.collection('ez_blocks').doc(ownerId).collection('users').onSnapshot(snapshot => {
+                personalBlockedIds.clear();
+                snapshot.forEach(doc => personalBlockedIds.add(doc.id));
+                personalBlocksLoaded = true;
+                applyDatingFilters();
+                updateMatchesUI();
+            }, e => console.warn('Personal blocks unavailable until rules are published:',e.code || e.message));
+        }
         function applyDatingFilters() {
             const city = datingFilter.city.trim().toLocaleLowerCase('uk-UA');
             const interest = datingFilter.interest.trim().toLocaleLowerCase('uk-UA');
             const min = datingFilter.min === '' ? null : Number(datingFilter.min);
             const max = datingFilter.max === '' ? null : Number(datingFilter.max);
             profiles = allDatingProfiles.filter(p => {
+                if (personalBlockedIds.has(String(p.docId || p.tgId || ''))) return false;
                 if (city && !String(p.city || '').toLocaleLowerCase('uk-UA').includes(city)) return false;
                 if (interest && !(Array.isArray(p.tags) ? p.tags : []).some(tag => String(tag).toLocaleLowerCase('uk-UA').includes(interest))) return false;
                 if (min !== null || max !== null) {
@@ -1858,6 +1893,7 @@
         function startFirestoreListeners() {
             if (!isFirebaseConnected || !db) return;
 
+            watchPersonalBlocks();
             db.collection('ez_users').orderBy('createdAt', 'desc').limit(50).onSnapshot(snapshot => {
                 const cloudProfiles = [];
                 const cloudBanned = [];
@@ -2038,6 +2074,13 @@
                 document.getElementById('debut-hint-msg').style.display = 'block';
                 document.getElementById('reply-input').focus();
             }
+        }
+
+        function blockCurrentProfile() {
+            if (currentIndex >= profiles.length) return;
+            const p = profiles[currentIndex];
+            const id = String(p.docId || p.tgId || '');
+            togglePersonalBlock(id);
         }
 
         async function reportCurrentProfile() {
@@ -2384,8 +2427,8 @@
             const oldInput = thread.querySelector('.conversation-compose input');
             if (oldInput && activeConversationId) conversationDrafts.set(activeConversationId,oldInput.value);
             list.replaceChildren(); thread.replaceChildren();
-            const ordered = [...threads.entries()].sort((a,b) => (b[1].at(-1)?.createdAt || 0) - (a[1].at(-1)?.createdAt || 0));
-            if (activeConversationId && !threads.has(activeConversationId)) activeConversationId = null;
+            const ordered = [...threads.entries()].filter(([id]) => !personalBlockedIds.has(id)).sort((a,b) => (b[1].at(-1)?.createdAt || 0) - (a[1].at(-1)?.createdAt || 0));
+            if (activeConversationId && (!threads.has(activeConversationId) || personalBlockedIds.has(activeConversationId))) activeConversationId = null;
             if (!activeConversationId) {
                 list.hidden = false; thread.hidden = true;
                 if (!ordered.length) {
@@ -2393,6 +2436,25 @@
                     empty.className = 'box-card';
                     empty.textContent = 'Поки немає діалогів. Зроби перший хід ♞';
                     list.appendChild(empty);
+                }
+                if (personalBlockedIds.size) {
+                    const blockedPanel = document.createElement('details');
+                    blockedPanel.className = 'box-card';
+                    const summary = document.createElement('summary');
+                    summary.textContent = '🚫 Чорний список (' + personalBlockedIds.size + ')';
+                    blockedPanel.appendChild(summary);
+                    [...personalBlockedIds].forEach(id => {
+                        const row = document.createElement('div');
+                        row.className = 'blocked-user-row';
+                        const label = document.createElement('span');
+                        label.textContent = conversationProfiles.get(id)?.name || 'Користувач #' + id.slice(-6);
+                        const button = document.createElement('button');
+                        button.textContent = 'Розблокувати';
+                        button.addEventListener('click', () => togglePersonalBlock(id));
+                        row.append(label,button);
+                        blockedPanel.appendChild(row);
+                    });
+                    list.appendChild(blockedPanel);
                 }
                 ordered.forEach(([otherId, messages]) => {
                     loadConversationProfile(otherId);
@@ -2444,6 +2506,13 @@
             back.addEventListener('click',closeConversation); header.appendChild(back);
             appendConversationAvatar(header,p);
             const name = document.createElement('strong'); name.textContent = p.name; header.appendChild(name);
+            const blockBtn = document.createElement('button');
+            blockBtn.className = 'conversation-block-btn';
+            blockBtn.textContent = '🚫';
+            blockBtn.title = 'Заблокувати співрозмовника';
+            blockBtn.setAttribute('aria-label','Заблокувати співрозмовника');
+            blockBtn.addEventListener('click',() => togglePersonalBlock(otherId));
+            header.appendChild(blockBtn);
             const body = document.createElement('div'); body.className = 'conversation-messages';
             const previousSeen = Number(conversationSeen[otherId]) || 0;
             let lastDay = '';
