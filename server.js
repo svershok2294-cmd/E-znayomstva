@@ -244,10 +244,10 @@ if (process.env.ENABLE_TEST_BOT_WELCOME === 'true' && BOT_TOKEN) {
             + 'Натисніть кнопку нижче, щоб відкрити застосунок. ✨';
           const reply = await telegramCall('sendMessage', {
             chat_id: msg.chat.id, text: greeting,
-            reply_markup: { keyboard: [[{
+            reply_markup: { inline_keyboard: [[{
               text: '💛 Відкрити Е-Знайомства',
               web_app: { url: 'https://e-znayomstva-test.onrender.com/' }
-            }]], resize_keyboard: true, is_persistent: true }
+            }]] }
           });
           if (!reply.ok) console.warn('Test welcome response failed:', reply.error_code || 'unknown');
         }
