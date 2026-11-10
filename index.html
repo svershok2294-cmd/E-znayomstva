@@ -2039,10 +2039,10 @@
                         createdAt: Date.now(), registrationRewardGranted: true });
                     return true;
                 });
-                if (firstRegistration && localStorage.getItem('chess_registration_reward_' + uid) !== '1') {
-                    // Display-only points: server ledger required before redeemable rewards.
+                if (firstRegistration) {
+                    // Registration eligibility is recorded in Firestore once.
+                    // Do not credit client-side currency: it is not a trusted ledger.
                     localStorage.setItem('chess_registration_reward_' + uid, '1');
-                    addVaultPoints(30);
                 }
                 const index = profiles.findIndex(p => String(p.tgId) === uid);
                 if (index >= 0) profiles[index] = { ...profiles[index], ...newProfileData };
