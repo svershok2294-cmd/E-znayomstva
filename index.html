@@ -1010,6 +1010,9 @@
         .conversation-header{display:flex;align-items:center;gap:12px;padding:10px 4px 16px;border-bottom:1px solid #3c3440}
         .conversation-back{background:#242027;border:1px solid #66552d;color:#f5c542;border-radius:10px;padding:9px}
         .conversation-messages{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:14px 3px;scrollbar-width:thin}
+        .conversation-day-divider{align-self:center;background:#201c17;border:1px solid #554627;color:#d8c89e;border-radius:18px;padding:5px 12px;font-size:11px;font-weight:700;margin:10px 0 4px}
+        .conversation-new-divider{align-self:stretch;display:flex;align-items:center;gap:10px;color:#f5c542;font-size:11px;font-weight:700;margin:10px 0}
+        .conversation-new-divider::before,.conversation-new-divider::after{content:'';height:1px;background:#75602e;flex:1}
         .conversation-bubble{max-width:85%;border-radius:15px;padding:11px 13px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.45}
         .conversation-bubble.mine{align-self:flex-end;background:#4a3b1c;border:1px solid #8c6a27;color:#fff3d6;border-bottom-right-radius:4px}
         .conversation-bubble.theirs{align-self:flex-start;background:#24232c;border:1px solid #44414d;color:#f4f4f5;border-bottom-left-radius:4px}
@@ -2265,6 +2268,10 @@
             document.getElementById('match-count').textContent = unreadTotal ? '● ' + unreadTotal : String(sentResponses.length + receivedResponses.length);
             const list = document.getElementById('conversation-list');
             const thread = document.getElementById('conversation-thread');
+            const oldBody = thread.querySelector('.conversation-messages');
+            const oldScroll = oldBody ? {top:oldBody.scrollTop, bottom:oldBody.scrollHeight - oldBody.clientHeight - oldBody.scrollTop} : null;
+            const oldInput = thread.querySelector('.conversation-compose input');
+            if (oldInput && activeConversationId) conversationDrafts.set(activeConversationId,oldInput.value);
             list.replaceChildren(); thread.replaceChildren();
             const ordered = [...threads.entries()].sort((a,b) => (b[1].at(-1)?.createdAt || 0) - (a[1].at(-1)?.createdAt || 0));
             if (activeConversationId && !threads.has(activeConversationId)) activeConversationId = null;
@@ -2309,7 +2316,26 @@
             appendConversationAvatar(header,p);
             const name = document.createElement('strong'); name.textContent = p.name; header.appendChild(name);
             const body = document.createElement('div'); body.className = 'conversation-messages';
+            const previousSeen = Number(conversationSeen[otherId]) || 0;
+            let lastDay = '';
+            let newDividerShown = false;
             messages.forEach(m => {
+                const timestamp = Number(m.createdAt) || 0;
+                const day = timestamp > 0 ? new Date(timestamp).toLocaleDateString('uk-UA',{day:'numeric',month:'long',year:'numeric'}) : 'Дата невідома';
+                if (day !== lastDay) {
+                    const divider = document.createElement('div');
+                    divider.className = 'conversation-day-divider';
+                    divider.textContent = day;
+                    body.appendChild(divider);
+                    lastDay = day;
+                }
+                if (!newDividerShown && m.direction === 'received' && timestamp > previousSeen) {
+                    const marker = document.createElement('div');
+                    marker.className = 'conversation-new-divider';
+                    marker.textContent = 'Нові повідомлення';
+                    body.appendChild(marker);
+                    newDividerShown = true;
+                }
                 const bubble = document.createElement('div');
                 bubble.className = 'conversation-bubble ' + (m.direction === 'sent' ? 'mine' : 'theirs');
                 const msg = document.createElement('span'); msg.textContent = String(m.myReply || '');
@@ -2363,7 +2389,11 @@
             input.addEventListener('keydown',e => { if (e.key === 'Enter' && !e.isComposing) submit(); });
             compose.append(input,send);
             thread.append(header,body,compose,status);
-            requestAnimationFrame(() => { if (body.isConnected) body.scrollTop = body.scrollHeight; });
+            requestAnimationFrame(() => {
+                if (!body.isConnected) return;
+                if (oldScroll && oldScroll.bottom > 90) body.scrollTop = oldScroll.top;
+                else body.scrollTop = body.scrollHeight;
+            });
             markConversationSeen(otherId,messages);
         }
 
