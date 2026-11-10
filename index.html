@@ -1018,11 +1018,11 @@
         .conversation-bubble.theirs{align-self:flex-start;background:#24232c;border:1px solid #44414d;color:#f4f4f5;border-bottom-left-radius:4px}
         .conversation-time{display:block;font-size:10px;opacity:.65;margin-top:5px;text-align:right}
         .conversation-compose{display:flex;gap:8px;padding:12px 0 8px;flex-shrink:0;background:#09090b;position:relative;z-index:2}
-        #conversation-thread:not([hidden]){display:flex;flex-direction:column;height:clamp(280px,calc(100dvh - 370px),680px);min-height:280px;overflow:hidden}
+        #conversation-thread:not([hidden]){display:flex;flex-direction:column;height:calc(100dvh - 305px);min-height:260px;max-height:none;overflow:hidden;scroll-margin-bottom:85px}
         #conversation-thread .conversation-header{flex-shrink:0}
         #conversation-thread .conversation-compose button:disabled{opacity:.55;cursor:wait}
         .conversation-send-status{font-size:11px;color:#a9a4a0;min-height:15px;padding:0 4px 5px}
-        @media(max-height:680px){#conversation-thread:not([hidden]){height:clamp(240px,calc(100dvh - 315px),520px);min-height:240px}}
+        @media(max-height:680px){#conversation-thread:not([hidden]){height:calc(100dvh - 275px);min-height:210px}}
         .conversation-compose input{min-width:0;flex:1;background:#111116;color:white;border:1px solid #65532d;border-radius:12px;padding:12px}
         .conversation-compose button{border:0;background:linear-gradient(135deg,#f5c542,#dc9e27);color:#211707;border-radius:12px;padding:10px 14px;font-weight:900}
         </style>
