@@ -1,0 +1,26 @@
+name: Candidate safety checks
+on:
+  push:
+    branches:
+      - candidate/production-server-moves
+  pull_request:
+    branches:
+      - candidate/production-server-moves
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check server JavaScript syntax
+        run: node --check server.js
+      - name: Check production candidate safeguards
+        run: node scripts/check-production-candidate.mjs
