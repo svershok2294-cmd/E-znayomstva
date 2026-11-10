@@ -15,6 +15,23 @@ service cloud.firestore {
       return telegramUser() && request.auth.uid == 'telegram:' + userId;
     }
 
+    function validProfile() {
+      return request.resource.data.name is string
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.city is string
+        && request.resource.data.city.size() <= 150
+        && request.resource.data.img is string
+        && request.resource.data.img.size() <= 750000
+        && request.resource.data.tags is list
+        && request.resource.data.tags.size() <= 12
+        && request.resource.data.question is string
+        && request.resource.data.question.size() <= 500
+        && request.resource.data.answer is string
+        && request.resource.data.answer.size() <= 600
+        && request.resource.data.icebreakers is list
+        && request.resource.data.icebreakers.size() <= 4;
+    }
+
     match /ez_users/{userId} {
       // Public profile discovery is limited to verified Telegram users.
       allow get, list: if telegramUser();
@@ -30,19 +47,13 @@ service cloud.firestore {
         && request.resource.data.isBanned == false
         && request.resource.data.trustScore == 0
         && request.resource.data.registrationRewardGranted == false
-        && request.resource.data.name is string
-        && request.resource.data.name.size() <= 120
-        && request.resource.data.img is string
-        && request.resource.data.img.size() <= 1000000;
+        && validProfile();
 
       allow update: if admin() || (owner(userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name', 'city', 'img', 'tags', 'question', 'answer', 'icebreakers'
         ])
-        && request.resource.data.name is string
-        && request.resource.data.name.size() <= 120
-        && request.resource.data.img is string
-        && request.resource.data.img.size() <= 1000000);
+        && validProfile());
 
       allow delete: if false;
     }
