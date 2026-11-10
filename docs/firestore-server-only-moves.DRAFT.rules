@@ -1,0 +1,138 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function telegramUser() {
+      return request.auth != null
+        && request.auth.uid.matches('telegram:[0-9]+');
+    }
+
+    function admin() {
+      return telegramUser() && request.auth.token.admin == true;
+    }
+
+    function owner(userId) {
+      return telegramUser() && request.auth.uid == 'telegram:' + userId;
+    }
+
+    function validProfile() {
+      return request.resource.data.name is string
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.city is string
+        && request.resource.data.city.size() <= 150
+        && request.resource.data.img is string
+        && request.resource.data.img.size() <= 750000
+        && request.resource.data.tags is list
+        && request.resource.data.tags.size() <= 12
+        && request.resource.data.question is string
+        && request.resource.data.question.size() <= 500
+        && request.resource.data.answer is string
+        && request.resource.data.answer.size() <= 600
+        && request.resource.data.icebreakers is list
+        && request.resource.data.icebreakers.size() <= 4;
+    }
+
+    match /ez_users/{userId} {
+      // Public profile discovery is limited to verified Telegram users.
+      allow get, list: if telegramUser();
+
+      allow create: if owner(userId)
+        && request.resource.data.keys().hasOnly([
+          'id', 'tgId', 'username', 'name', 'city', 'img', 'tags',
+          'question', 'answer', 'icebreakers', 'isVip', 'isBanned',
+          'trustScore', 'trustLabel', 'createdAt', 'registrationRewardGranted'
+        ])
+        && request.resource.data.tgId == userId
+        && request.resource.data.isVip == false
+        && request.resource.data.isBanned == false
+        && request.resource.data.trustScore == 0
+        && request.resource.data.registrationRewardGranted == false
+        && validProfile();
+
+      allow update: if admin() || (owner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'city', 'img', 'tags', 'question', 'answer', 'icebreakers'
+        ])
+        && validProfile());
+
+      allow delete: if false;
+    }
+
+    // Personal blocks: only the owner can list, create, or remove entries.
+    // Document path: ez_blocks/{ownerTelegramId}/users/{blockedTelegramId}.
+    match /ez_blocks/{ownerId}/users/{blockedId} {
+      allow get, list: if owner(ownerId);
+      allow create: if owner(ownerId)
+        && blockedId.matches('[0-9]+')
+        && blockedId != ownerId
+        && request.resource.data.keys().hasOnly(['blockedAt'])
+        && request.resource.data.blockedAt is number
+        && request.resource.data.blockedAt >= 0;
+      allow delete: if owner(ownerId);
+      allow update: if false;
+    }
+
+    function blockedEitherWay(senderId, recipientId) {
+      return exists(/databases/$(database)/documents/ez_blocks/$(senderId)/users/$(recipientId))
+        || exists(/databases/$(database)/documents/ez_blocks/$(recipientId)/users/$(senderId));
+    }
+
+    match /ez_moves/{moveId} {
+      // Server-only writes: Firebase Admin on test backend validates auth, blocks and cooldown.
+      // DO NOT publish until test backend is verified and production clients are migrated.
+      allow create: if false;
+      allow get, list: if telegramUser()
+        && (request.auth.uid == 'telegram:' + resource.data.fromUserId
+          || (resource.data.keys().hasAny(['targetUserId'])
+            && request.auth.uid == 'telegram:' + resource.data.targetUserId));
+      allow update, delete: if false;
+    }
+
+    match /ez_chat_reads/{receiptId} {
+      // Document ID is recipient_sender; only the recipient may mark a thread read.
+      function validReceipt() {
+        return request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'seenAt'])
+          && request.resource.data.recipientId is string
+          && request.resource.data.senderId is string
+          && request.resource.data.recipientId.matches('[0-9]+')
+          && request.resource.data.senderId.matches('[0-9]+')
+          && request.resource.data.recipientId != request.resource.data.senderId
+          && receiptId == request.resource.data.recipientId + '_' + request.resource.data.senderId
+          && request.resource.data.seenAt is number
+          && request.resource.data.seenAt >= 0
+          && request.resource.data.seenAt <= request.time.toMillis() + 60000;
+      }
+      allow get: if telegramUser() && (
+        request.auth.uid == 'telegram:' + resource.data.recipientId ||
+        request.auth.uid == 'telegram:' + resource.data.senderId);
+      allow list, delete: if false;
+      allow create: if telegramUser() && validReceipt()
+        && request.auth.uid == 'telegram:' + request.resource.data.recipientId;
+      allow update: if telegramUser() && validReceipt()
+        && request.auth.uid == 'telegram:' + resource.data.recipientId
+        && request.resource.data.recipientId == resource.data.recipientId
+        && request.resource.data.senderId == resource.data.senderId
+        && request.resource.data.seenAt >= resource.data.seenAt;
+    }
+
+    match /ez_reports/{reportId} {
+      // Existing client reports have no authenticated reporter field.
+      // Create only; do not expose sensitive reports to all users.
+      allow create: if telegramUser()
+        && request.resource.data.keys().hasOnly([
+          'name', 'reason', 'text', 'img', 'createdAt'
+        ]);
+      allow get, list, delete: if admin();
+      allow update: if false;
+    }
+
+    // Shared revenue/admin data must be written by a trusted backend.
+    match /ez_stats/{docId} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
