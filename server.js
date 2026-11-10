@@ -129,43 +129,66 @@ if (BOT_TOKEN) {
 }
 
 
-// Test-only Telegram notifications. This process must be deployed ONLY to the
-// e-znayomstva-test-auth service: production uses a separate, pinned deployment.
-// The first snapshot is a baseline; historical messages are never re-sent.
+// Test-only notifications. The production Render service must not enable this flag.
+// Telegram button opens the TEST bot chat; opening the Mini App remains a user action.
 if (process.env.ENABLE_TEST_MOVE_NOTIFICATIONS === 'true' && firebaseReady && BOT_TOKEN) {
-  let initialized = false;
-  const delivered = new Set();
-  const lastSentTo = new Map();
   const firestore = getFirestore();
-  const movesQuery = firestore.collection('ez_moves').orderBy('createdAt', 'desc').limit(100);
-  movesQuery.onSnapshot(snapshot => {
-    if (!initialized) {
-      snapshot.docs.forEach(doc => delivered.add(doc.id));
-      initialized = true;
-      console.log('Test move notifications: watching new messages');
+  const receipts = firestore.collection('ez_test_notification_receipts');
+  const seenInProcess = new Set();
+  const lastSentTo = new Map();
+  let initialized = false;
+  const testBotUrl = 'https://t.me/Eznayomstva_test_bot';
+
+  async function notifyForMove(change) {
+    if (change.type !== 'added' || seenInProcess.has(change.doc.id)) return;
+    seenInProcess.add(change.doc.id);
+    const move = change.doc.data() || {};
+    const recipient = String(move.targetUserId || '');
+    const sender = String(move.fromUserId || '');
+    if (!/^[0-9]+$/.test(recipient) || !/^[0-9]+$/.test(sender) || recipient === sender) return;
+    const now = Date.now();
+    if (now - (lastSentTo.get(recipient) || 0) < 5000) return;
+    lastSentTo.set(recipient, now);
+
+    const receipt = receipts.doc(change.doc.id);
+    try {
+      // Atomic create prevents duplicate notifications after a server restart.
+      // A failed Telegram send removes the receipt, allowing a future retry.
+      await receipt.create({ recipient, createdAt: now, status: 'pending' });
+    } catch (error) {
+      if (error.code === 6 || error.code === 'already-exists') return;
+      console.warn('Test notification receipt unavailable:', error.code || error.message);
       return;
     }
-    for (const change of snapshot.docChanges()) {
-      if (change.type !== 'added' || delivered.has(change.doc.id)) continue;
-      delivered.add(change.doc.id);
-      const move = change.doc.data() || {};
-      const recipient = String(move.targetUserId || '');
-      const sender = String(move.fromUserId || '');
-      if (!/^[0-9]+$/.test(recipient) || !/^[0-9]+$/.test(sender) || recipient === sender) continue;
-      const now = Date.now();
-      if (now - (lastSentTo.get(recipient) || 0) < 5000) continue;
-      lastSentTo.set(recipient, now);
-      // Never send message bodies or private profile details via bot notification.
-      const text = '💌 Нове повідомлення в «Е-Знайомства»!\n\n♞ Відкрийте тестовий застосунок, щоб прочитати та відповісти.';
-      fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage', {
+    try {
+      const response = await fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: recipient, text }),
+        body: JSON.stringify({
+          chat_id: recipient,
+          text: '💌 Нове повідомлення в «Е-Знайомства»!\n\n♞ Відкрийте тестовий застосунок, щоб прочитати та відповісти.',
+          reply_markup: { inline_keyboard: [[{ text: '💬 Відкрити Е-Знайомства', url: testBotUrl }]] }
+        }),
         signal: AbortSignal.timeout(10000)
-      }).then(res => res.json()).then(result => {
-        if (!result.ok) console.warn('Test notification not delivered:', result.error_code || 'telegram_error');
-      }).catch(err => console.warn('Test notification request failed:', err.message));
+      });
+      const result = await response.json();
+      if (!result.ok) throw new Error('Telegram HTTP ' + (result.error_code || response.status));
+      await receipt.update({ status: 'sent', sentAt: Date.now() });
+    } catch (error) {
+      console.warn('Test notification not delivered:', error.message);
+      // Keep the pending receipt on ambiguous network failures to avoid duplicates.
+      // Admin can inspect failed/pending receipts; no message body is stored.
     }
-    if (delivered.size > 5000) delivered.clear();
-  }, err => console.warn('Test notification listener failed:', err.message));
+  }
+
+  firestore.collection('ez_moves').orderBy('createdAt', 'desc').limit(100).onSnapshot(snapshot => {
+    if (!initialized) {
+      snapshot.docs.forEach(doc => seenInProcess.add(doc.id));
+      initialized = true;
+      console.log('Test notifications ready; historical messages ignored');
+      return;
+    }
+    for (const change of snapshot.docChanges()) void notifyForMove(change);
+    if (seenInProcess.size > 5000) seenInProcess.clear();
+  }, error => console.warn('Test notifications listener:', error.message));
 }
