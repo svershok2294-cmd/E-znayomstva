@@ -67,7 +67,8 @@ function verifyTelegram(initData, reportFailure = () => {}) {
   const params = new URLSearchParams(initData);
   const hashes = params.getAll('hash');
   if (hashes.length !== 1 || !/^[a-f0-9]{64}$/i.test(hashes[0])) return reject('invalid_input');
-  const pairs = [...params.entries()].filter(([key]) => key !== 'hash' && key !== 'signature');
+  // Telegram WebApp HMAC covers every received field except hash, including signature when present.
+  const pairs = [...params.entries()].filter(([key]) => key !== 'hash');
   const keys = pairs.map(([key]) => key);
   if (new Set(keys).size !== keys.length) return reject('invalid_input');
   const checkString = pairs.sort(([a], [b]) => a.localeCompare(b, 'en')).map(([k, v]) => k + '=' + v).join('\n');
