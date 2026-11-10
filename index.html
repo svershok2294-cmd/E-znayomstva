@@ -1887,8 +1887,7 @@
             return true;
         }
         // Test rollout switch. Keep false until the test auth backend endpoint is enabled and verified.
-        // PRODUCTION CANDIDATE ONLY (not deployed): production GitHub Pages would use server sends; rollback query remains temporary.
-        const USE_TEST_SERVER_MOVES = location.hostname === 'svershok2294-cmd.github.io' && location.pathname.startsWith('/E-znayomstva/') && new URLSearchParams(location.search).get('serverMoves') !== '0';
+        // Production candidate: all message creation uses the trusted server; no direct Firestore fallback.
         async function submitMoveViaServer(targetUserId, myReply) {
             const currentUser = firebase.auth().currentUser;
             if (!currentUser || !verifiedTelegramUser) throw new Error('Спочатку підтвердь вхід через Telegram.');
@@ -1915,23 +1914,7 @@
             recordMessageSent(senderId);
             button.disabled = true;
             try {
-                if (USE_TEST_SERVER_MOVES) {
-                    await submitMoveViaServer(senderId, text);
-                    return true;
-                }
-                const doc = await db.collection('ez_users').doc(String(senderId)).get();
-                if (!doc.exists || doc.data().isBanned) throw Error('Анкету співрозмовника не знайдено.');
-                const target = doc.data();
-                await db.collection('ez_moves').add({
-                    fromUserId: String(verifiedTelegramUser.id),
-                    targetUserId: String(senderId),
-                    targetUsername: String(target.username || ''),
-                    name: String(target.name || ''),
-                    city: String(target.city || ''),
-                    img: String(target.img || ''),
-                    myReply: text,
-                    createdAt: Date.now()
-                });
+                await submitMoveViaServer(senderId, text);
                 return true;
             } catch (e) {
                 // Failed sends must not consume the waiting period.
@@ -2291,9 +2274,7 @@
                 };
                 if (isFirebaseConnected && db && verifiedTelegramUser && /^\d+$/.test(moveObj.targetUserId) && moveObj.targetUserId !== moveObj.fromUserId) {
                     recordMessageSent(moveObj.targetUserId);
-                    (USE_TEST_SERVER_MOVES
-                        ? submitMoveViaServer(moveObj.targetUserId, moveObj.myReply)
-                        : db.collection('ez_moves').add(moveObj)).catch(e => {
+                    submitMoveViaServer(moveObj.targetUserId, moveObj.myReply).catch(e => {
                         lastMessageTimes.delete(moveObj.targetUserId);
                         try { localStorage.removeItem('ez_last_message_' + String(verifiedTelegramUser.id) + '_' + moveObj.targetUserId); } catch (_) {}
                         console.warn('Move save failed:', e.code || e.message);
