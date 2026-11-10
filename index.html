@@ -1391,7 +1391,7 @@
             const status = document.getElementById('firebase-admin-status');
             try {
                 if (!db || !tg.initData) throw new Error('Open this Mini App inside Telegram');
-                const response = await fetch('https://e-znayomstva-auth.onrender.com/auth/telegram', {
+                const response = await fetch('https://e-znayomstva-test-auth.onrender.com/auth/telegram', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ initData: tg.initData })
