@@ -26,3 +26,5 @@ jobs:
         run: node scripts/check-production-candidate.mjs
       - name: Test swipe behavior without Firebase
         run: node scripts/test-candidate-swipe.mjs
+      - name: Test server rate limit with mock Firestore
+        run: node scripts/test-server-rate-limit.mjs
