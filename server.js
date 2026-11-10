@@ -202,5 +202,61 @@ if (BOT_TOKEN) {
 }
 
 
-// Production candidate intentionally excludes test-bot notifications and welcome polling.
-// Production notification delivery requires a separately reviewed implementation.
+// Production notification candidate. Disabled by default; must be reviewed and explicitly enabled.
+// This sends only a generic notification (no message text or sender identity).
+// Telegram user must have started the configured production bot to receive it.
+if (process.env.ENABLE_PRODUCTION_MOVE_NOTIFICATIONS === 'true' && firebaseReady && BOT_TOKEN) {
+  const firestore = getFirestore();
+  const receipts = firestore.collection('ez_production_notification_receipts');
+  const seen = new Set();
+  let initialized = false;
+
+  async function notifyNewMove(change) {
+    if (change.type !== 'added' || seen.has(change.doc.id)) return;
+    seen.add(change.doc.id);
+    const move = change.doc.data() || {};
+    const recipient = String(move.targetUserId || '');
+    const sender = String(move.fromUserId || '');
+    if (!/^[0-9]+$/.test(recipient) || !/^[0-9]+$/.test(sender) || recipient === sender) return;
+    const receipt = receipts.doc(change.doc.id);
+    try {
+      await receipt.create({ recipient, createdAt: Date.now(), status: 'pending' });
+    } catch (error) {
+      if (error.code === 6 || error.code === 'already-exists') return;
+      console.warn('Production notification receipt error:', error.code || error.message);
+      return;
+    }
+    try {
+      const response = await fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: recipient,
+          text: '💌 Нове повідомлення в «Е-Знайомства»!\n\n♞ Відкрийте застосунок, щоб прочитати та відповісти.',
+          reply_markup: { inline_keyboard: [[{
+            text: '💬 Відкрити Е-Знайомства',
+            web_app: { url: 'https://svershok2294-cmd.github.io/E-znayomstva/' }
+          }]] }
+        }),
+        signal: AbortSignal.timeout(10000)
+      });
+      const result = await response.json();
+      if (!result.ok) throw new Error('Telegram HTTP ' + (result.error_code || response.status));
+      await receipt.update({ status: 'sent', sentAt: Date.now() });
+    } catch (error) {
+      // Do not automatically retry ambiguous failures; Telegram may already have delivered.
+      console.warn('Production notification not confirmed:', error.message);
+    }
+  }
+
+  firestore.collection('ez_moves').orderBy('createdAt', 'desc').limit(100).onSnapshot(snapshot => {
+    if (!initialized) {
+      for (const doc of snapshot.docs) seen.add(doc.id);
+      initialized = true;
+      console.log('Production notifications initialized; historical moves ignored');
+      return;
+    }
+    for (const change of snapshot.docChanges()) void notifyNewMove(change);
+    if (seen.size > 5000) seen.clear();
+  }, error => console.warn('Production notification listener:', error.message));
+}
