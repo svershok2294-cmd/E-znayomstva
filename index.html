@@ -1866,13 +1866,7 @@
         // UI cooldown only. A trusted server-side rate limit is still needed.
         const messageCooldownMs = 5000;
         const lastMessageTimes = new Map();
-        // Explicit test-only diagnostic: bypass UI timer, never the server limit.
-        // Only works on the test host when server messaging is active.
-        const TEST_SERVER_RATE_CHECK = location.hostname === 'e-znayomstva-test.onrender.com'
-            && new URLSearchParams(location.search).get('rateCheck') === '1'
-            && new URLSearchParams(location.search).get('serverMoves') !== '0';
         function messageCooldownRemaining(targetId) {
-            if (TEST_SERVER_RATE_CHECK) return 0;
             const id = String(targetId || '');
             const key = 'ez_last_message_' + String(verifiedTelegramUser?.id || '') + '_' + id;
             let persisted = 0;
