@@ -1402,6 +1402,11 @@
                 const credential = await firebase.auth().signInWithCustomToken(result.token);
                 if (credential.user.uid !== 'telegram:' + result.user.id) throw new Error('Unexpected Firebase identity');
                 verifiedTelegramUser = result.user;
+                const claims = await credential.user.getIdTokenResult();
+                isViewingAsAdmin = claims.claims.admin === true;
+                document.querySelectorAll('.admin-only-el').forEach(el => {
+                    el.style.display = isViewingAsAdmin ? '' : 'none';
+                });
                 isFirebaseConnected = true;
                 document.getElementById('db-status-dot').classList.add('online');
                 if (status) status.textContent = '🟢 FIREBASE: TELEGRAM АВТОРИЗОВАНО';
@@ -1614,8 +1619,14 @@
                 document.getElementById('firebase-admin-status').textContent = "⚠️ ПЕРЕВІР FIRESTORE RULES (ДОЗВОЛЬ READ/WRITE ДЛЯ ez_*)";
             });
 
-            // Reports contain private data. Read only through a future
-            // verified admin backend, never from every signed-in client.
+            // Reports are visible only with a server-issued admin Firebase claim.
+            if (isViewingAsAdmin) {
+                db.collection('ez_reports').orderBy('createdAt', 'desc').limit(30)
+                  .onSnapshot(snapshot => {
+                      reportsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                      renderAdminLists();
+                  }, err => console.warn('Admin reports:', err.code || err.message));
+            }
 
             db.collection('ez_moves').where('fromUserId', '==', String(currentUserId)).limit(30).onSnapshot(snapshot => {
                 const moves = [];
@@ -2163,6 +2174,7 @@
         }
 
         function switchTab(tabName, btnEl) {
+            if (tabName === 'admin' && !isViewingAsAdmin) return;
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.getElementById('tab-' + tabName).classList.add('active');
