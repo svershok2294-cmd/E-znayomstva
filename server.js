@@ -192,3 +192,70 @@ if (process.env.ENABLE_TEST_MOVE_NOTIFICATIONS === 'true' && firebaseReady && BO
     if (seenInProcess.size > 5000) seenInProcess.clear();
   }, error => console.warn('Test notifications listener:', error.message));
 }
+
+if (process.env.ENABLE_TEST_BOT_WELCOME === 'true' && BOT_TOKEN) {
+  const api = 'https://api.telegram.org/bot' + BOT_TOKEN + '/';
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  async function telegramCall(method, body, timeoutMs = 12000) {
+    const response = await fetch(api + method, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs)
+    });
+    return response.json();
+  }
+  async function runWelcomePolling() {
+    let offset;
+    try {
+      const info = await telegramCall('getWebhookInfo', {});
+      if (!info.ok || info.result?.url) {
+        console.warn('Test welcome polling disabled: webhook active or status unavailable');
+        return;
+      }
+      const latest = await telegramCall('getUpdates', { offset: -1, limit: 1, timeout: 0 });
+      if (!latest.ok) {
+        console.warn('Test welcome polling unavailable:', latest.error_code || 'unknown');
+        return;
+      }
+      offset = latest.result?.length ? latest.result[latest.result.length - 1].update_id + 1 : undefined;
+      console.log('Test bot welcome polling started');
+    } catch (error) {
+      console.warn('Test welcome startup:', error.message);
+      return;
+    }
+    while (true) {
+      try {
+        const result = await telegramCall('getUpdates', {
+          ...(offset === undefined ? {} : { offset }), timeout: 20, limit: 20,
+          allowed_updates: ['message']
+        }, 28000);
+        if (!result.ok) {
+          console.warn('Test welcome polling error:', result.error_code || 'unknown');
+          await sleep(12000);
+          continue;
+        }
+        for (const update of result.result || []) {
+          offset = update.update_id + 1;
+          const msg = update.message;
+          if (msg?.chat?.type !== 'private' || !(msg.text || '').startsWith('/start')) continue;
+          const firstName = typeof msg.from?.first_name === 'string'
+            ? msg.from.first_name.replace(/[<>]/g, '').slice(0, 60) : 'друже';
+          const greeting = '💛 Вітаємо в «Е-Знайомства», ' + firstName + '!\n\n'
+            + '♟️ Знайомтеся, спілкуйтеся та знаходьте близьких за духом людей.\n\n'
+            + 'Натисніть кнопку нижче, щоб відкрити застосунок. ✨';
+          const reply = await telegramCall('sendMessage', {
+            chat_id: msg.chat.id, text: greeting,
+            reply_markup: { keyboard: [[{
+              text: '💛 Відкрити Е-Знайомства',
+              web_app: { url: 'https://e-znayomstva-test.onrender.com/' }
+            }]], resize_keyboard: true, is_persistent: true }
+          });
+          if (!reply.ok) console.warn('Test welcome response failed:', reply.error_code || 'unknown');
+        }
+      } catch (error) {
+        console.warn('Test welcome polling retry:', error.message);
+        await sleep(5000);
+      }
+    }
+  }
+  void runWelcomePolling();
+}
