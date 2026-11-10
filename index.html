@@ -1195,7 +1195,7 @@
                             <textarea id="reg-prompt-a" class="form-textarea" rows="2">Запросити на вечірню каву і обговорити улюблені фільми ✨</textarea>
                         </div>
 
-                        <button class="primary-btn" id="reg-submit-btn" onclick="submitRegistration()">♞ Зберегти анкету в Firebase (+30 💎)</button>
+                        <button class="primary-btn" id="reg-submit-btn" onclick="submitRegistration()">♞ Зберегти анкету в Firebase</button>
                     </div>
                 </div>
             </div>
@@ -1517,7 +1517,7 @@
         applyResponsiveLayout();
 
         // --- СТАРТОВІ ЖИВІ АНКЕТИ (БЕЗ ТЕСТОВИХ БОТІВ У СТРІЧЦІ) ---
-        let uploadedPhotoDataUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80";
+        let uploadedPhotoDataUrl = ""; // No unrelated person's photo as registration default.
 
         const defaultProfiles = [
             {
@@ -1969,6 +1969,10 @@
                 const uid = String(verifiedTelegramUser.id);
                 const snap = await db.collection('ez_users').doc(uid).get();
                 if (snap.exists) {
+                    const existingPhoto = snap.data()?.img;
+                    if (typeof existingPhoto === 'string' && existingPhoto) {
+                        uploadedPhotoDataUrl = existingPhoto;
+                    }
                     document.getElementById('reg-submit-btn').textContent = "♞ Оновити анкету";
                     localStorage.setItem('chess_registration_reward_' + uid, '1');
                 }
@@ -1991,6 +1995,11 @@
 
             if (!checkAutoModeration(answer)) {
                 alert("🛡️ Авто-фільтр заблокував опис анкети через підозрілі посилання або спам!");
+                return;
+            }
+
+            if (!uploadedPhotoDataUrl) {
+                alert("Додай власне фото перед збереженням анкети.");
                 return;
             }
 
