@@ -117,3 +117,12 @@ const server = http.createServer((req, res) => {
   });
 });
 server.listen(PORT, '0.0.0.0', () => console.log('Telegram auth server listening on port ' + PORT));
+// Diagnostic: identify the configured bot without exposing its token.
+// The request is sent only to Telegram's official API; logs contain username only.
+if (BOT_TOKEN) {
+  fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/getMe', { signal: AbortSignal.timeout(8000) })
+    .then(response => response.json())
+    .then(result => console.log('Configured Telegram bot:', result.ok && result.result?.username ? '@' + result.result.username : 'TOKEN_REJECTED'))
+    .catch(() => console.warn('Configured Telegram bot: LOOKUP_UNAVAILABLE'));
+}
+
