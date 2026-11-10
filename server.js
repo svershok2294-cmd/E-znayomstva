@@ -8,10 +8,12 @@ import { getFirestore } from 'firebase-admin/firestore';
 const PORT = Number(process.env.PORT || 10000);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 // Browser Origin for GitHub Pages contains only scheme + host (no repo path).
+// Candidate production service accepts only the production web origin by default.
+// APP_ORIGIN is optional and must be an exact, trusted HTTPS origin.
 const ALLOWED_ORIGINS = new Set([
   'https://svershok2294-cmd.github.io',
-  'https://e-znayomstva-test.onrender.com',
-  ...(process.env.APP_ORIGIN ? [process.env.APP_ORIGIN] : [])
+  ...(process.env.APP_ORIGIN && /^https:\/\/[a-z0-9.-]+(?::[0-9]+)?$/i.test(process.env.APP_ORIGIN)
+    ? [process.env.APP_ORIGIN] : [])
 ]);
 const MAX_AGE_SECONDS = 300;
 const ADMIN_TELEGRAM_ID = /^\\d+$/.test(process.env.ADMIN_TELEGRAM_ID || '')
