@@ -1843,18 +1843,25 @@
 
         function renderCard() {
             const cardHolder = document.getElementById('card-holder');
+            const cardEl = document.getElementById('current-card');
+            let emptyState = document.getElementById('profiles-empty-state');
             if (currentIndex >= profiles.length) {
-                cardHolder.innerHTML = `
-                    <div class="box-card" style="text-align:center; padding:24px;">
-                        <h3 style="margin-bottom:8px;">♔ Партію завершено!</h3>
-                        <p style="font-size:12px; color:var(--muted); margin-bottom:14px;">Усі анкети переглянуто. Додай свою анкету або онови стрічку.</p>
-                        <button class="primary-btn" onclick="location.reload()">Оновити стрічку</button>
-                    </div>`;
+                if (cardEl) cardEl.style.display = 'none';
+                if (!emptyState) {
+                    emptyState = document.createElement('div');
+                    emptyState.id = 'profiles-empty-state';
+                    emptyState.className = 'box-card';
+                    emptyState.style.cssText = 'text-align:center;padding:24px;';
+                    emptyState.innerHTML = '<h3>♔ Анкет поки немає</h3><p>Нові анкети з’являться тут після реєстрації користувачів.</p><button class="primary-btn" onclick="location.reload()">Оновити стрічку</button>';
+                    cardHolder.appendChild(emptyState);
+                }
+                emptyState.style.display = '';
                 return;
             }
+            if (emptyState) emptyState.style.display = 'none';
+            if (cardEl) cardEl.style.display = '';
 
             const p = profiles[currentIndex];
-            const cardEl = document.getElementById('current-card');
             const trustEl = document.getElementById('p-trust');
             if (!cardEl) return;
 
@@ -1880,11 +1887,24 @@
             document.getElementById('debut-hint-msg').style.display = 'none';
 
             const tagsBox = document.getElementById('p-tags');
-            tagsBox.innerHTML = (p.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+            tagsBox.replaceChildren();
+            (Array.isArray(p.tags) ? p.tags : []).forEach(tag => {
+                const el = document.createElement('span');
+                el.className = 'tag';
+                el.textContent = String(tag);
+                tagsBox.appendChild(el);
+            });
 
             const iceBox = document.getElementById('icebreakers-box');
-            const chips = p.icebreakers || ["Цікава відповідь, розкажеш детальніше? ✨", "Зіграємо цю партію за чашкою кави? ☕"];
-            iceBox.innerHTML = chips.map(c => `<span class="icebreaker-chip" onclick="fillIcebreaker('${c.replace(/'/g, "\\'")}')">⚡ ${c}</span>`).join('');
+            const chips = Array.isArray(p.icebreakers) ? p.icebreakers : ["Цікава відповідь, розкажеш детальніше? ✨", "Зіграємо цю партію за чашкою кави? ☕"];
+            iceBox.replaceChildren();
+            chips.forEach(chip => {
+                const el = document.createElement('span');
+                el.className = 'icebreaker-chip';
+                el.textContent = '⚡ ' + String(chip);
+                el.addEventListener('click', () => fillIcebreaker(String(chip)));
+                iceBox.appendChild(el);
+            });
         }
 
         function nextProfile(isLike, customReply) {
