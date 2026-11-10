@@ -2048,6 +2048,17 @@
             `).join('');
         }
 
+        function escapeAdminHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[char]));
+        }
+
+        function safeAdminImage(value) {
+            const url = String(value || '');
+            return escapeAdminHtml(/^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/i.test(url) ? url : '');
+        }
+
         function renderAdminLists() {
             document.getElementById('stat-reports').textContent = reportsData.length;
             document.getElementById('stat-bots').textContent = botsData.length;
@@ -2063,16 +2074,16 @@
                 : reportsData.map(r => `
                     <div class="bw-card">
                         <div class="bw-card-header">
-                            <img class="avatar-sm" src="${r.img}">
+                            <img class="avatar-sm" src="${safeAdminImage(r.img)}">
                             <div>
-                                <h4 style="font-size:13px;">${r.name}</h4>
-                                <span class="reason-tag">${r.reason}</span>
+                                <h4 style="font-size:13px;">${escapeAdminHtml(r.name)}</h4>
+                                <span class="reason-tag">${escapeAdminHtml(r.reason)}</span>
                             </div>
                         </div>
-                        <div class="report-text">${r.text}</div>
+                        <div class="report-text">${escapeAdminHtml(r.text)}</div>
                         <div class="admin-btn-row">
-                            <button class="btn-sm btn-ban-bw" onclick="handleReport('${r.id}', true)">♔ В бан</button>
-                            <button class="btn-sm btn-ignore-bw" onclick="handleReport('${r.id}', false)">Відхилити</button>
+                            <button class="btn-sm btn-ban-bw" onclick="handleReport('${escapeAdminHtml(r.id)}', true)">♔ В бан</button>
+                            <button class="btn-sm btn-ignore-bw" onclick="handleReport('${escapeAdminHtml(r.id)}', false)">Відхилити</button>
                         </div>
                     </div>
                 `).join('');
@@ -2082,16 +2093,16 @@
                 : botsData.map(b => `
                     <div class="bw-card">
                         <div class="bw-card-header">
-                            <img class="avatar-sm" src="${b.img}">
+                            <img class="avatar-sm" src="${safeAdminImage(b.img)}">
                             <div>
-                                <h4 style="font-size:13px;">${b.name}</h4>
-                                <span class="reason-tag">${b.reason}</span>
+                                <h4 style="font-size:13px;">${escapeAdminHtml(b.name)}</h4>
+                                <span class="reason-tag">${escapeAdminHtml(b.reason)}</span>
                             </div>
                         </div>
-                        <div class="report-text">${b.text}</div>
+                        <div class="report-text">${escapeAdminHtml(b.text)}</div>
                         <div class="admin-btn-row">
-                            <button class="btn-sm btn-ban-bw" onclick="handleBot('${b.id}', true)">🤖 Заблокувати</button>
-                            <button class="btn-sm btn-ignore-bw" onclick="handleBot('${b.id}', false)">Ігнорувати</button>
+                            <button class="btn-sm btn-ban-bw" onclick="handleBot('${escapeAdminHtml(b.id)}', true)">🤖 Заблокувати</button>
+                            <button class="btn-sm btn-ignore-bw" onclick="handleBot('${escapeAdminHtml(b.id)}', false)">Ігнорувати</button>
                         </div>
                     </div>
                 `).join('');
@@ -2101,12 +2112,12 @@
                 : bannedUsers.map((u, idx) => `
                     <div class="bw-card">
                         <div class="bw-card-header">
-                            <img class="avatar-sm" src="${u.img}">
+                            <img class="avatar-sm" src="${safeAdminImage(u.img)}">
                             <div style="flex:1;">
-                                <h4 style="font-size:12px;">${u.name}</h4>
-                                <p style="font-size:10px; color:var(--muted);">${u.reason || 'Заблоковано'}</p>
+                                <h4 style="font-size:12px;">${escapeAdminHtml(u.name)}</h4>
+                                <p style="font-size:10px; color:var(--muted);">${escapeAdminHtml(u.reason || 'Заблоковано')}</p>
                             </div>
-                            <button class="btn-sm btn-ignore-bw" style="flex:0 0 auto; color:#fff;" onclick="unbanUser(${idx}, '${u.docId || ''}')">Розбанити</button>
+                            <button class="btn-sm btn-ignore-bw" style="flex:0 0 auto; color:#fff;" onclick="unbanUser(${idx}, '${escapeAdminHtml(u.docId || '')}')">Розбанити</button>
                         </div>
                     </div>
                 `).join('');
