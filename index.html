@@ -1610,13 +1610,11 @@
                   }, err => console.warn('Admin reports:', err.code || err.message));
             }
 
-            db.collection('ez_moves').where('fromUserId', '==', String(currentUserId)).limit(30).onSnapshot(snapshot => {
+            db.collection('ez_moves').where('fromUserId', '==', String(verifiedTelegramUser.id)).limit(30).onSnapshot(snapshot => {
                 const moves = [];
                 snapshot.forEach(doc => moves.push(doc.data()));
-                if (moves.length > 0) {
-                    sentResponses = moves;
-                    updateMatchesUI();
-                }
+                sentResponses = moves;
+                updateMatchesUI();
             }, err => console.warn(err));
         }
 
@@ -1871,11 +1869,13 @@
                     myReply: customReply || "Змістовний хід ♔",
                     createdAt: Date.now()
                 };
-                sentResponses.unshift(moveObj);
-                updateMatchesUI();
-
-                if (isFirebaseConnected && db) {
-                    db.collection('ez_moves').add(moveObj).catch(e => console.warn(e));
+                if (isFirebaseConnected && db && verifiedTelegramUser) {
+                    db.collection('ez_moves').add(moveObj).catch(e => {
+                        console.warn('Move save failed:', e.code || e.message);
+                        alert("Не вдалося зберегти хід. Перевір підключення до Firebase.");
+                    });
+                } else {
+                    alert("Спочатку підтвердь вхід через Telegram, щоб зберегти хід.");
                 }
             }
 
