@@ -241,12 +241,12 @@ if (process.env.ENABLE_TEST_BOT_WELCOME === 'true' && BOT_TOKEN) {
             ? msg.from.first_name.replace(/[<>]/g, '').slice(0, 60) : 'друже';
           const greeting = '💛 Вітаємо в «Е-Знайомства», ' + firstName + '!\n\n'
             + '♟️ Знайомтеся, спілкуйтеся та знаходьте близьких за духом людей.\n\n'
-            + 'Натисніть кнопку нижче, щоб відкрити застосунок. ✨';
+            + 'Відкрийте застосунок через звичну кнопку в меню бота. ✨';
           const reply = await telegramCall('sendMessage', {
             chat_id: msg.chat.id, text: greeting,
             reply_markup: { inline_keyboard: [[{
               text: '💛 Відкрити Е-Знайомства',
-              web_app: { url: 'https://e-znayomstva-test.onrender.com/' }
+              url: 'https://t.me/Eznayomstva_test_bot'
             }]] }
           });
           if (!reply.ok) console.warn('Test welcome response failed:', reply.error_code || 'unknown');
