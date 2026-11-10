@@ -58,6 +58,25 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Personal blocks: only the owner can list, create, or remove entries.
+    // Document path: ez_blocks/{ownerTelegramId}/users/{blockedTelegramId}.
+    match /ez_blocks/{ownerId}/users/{blockedId} {
+      allow get, list: if owner(ownerId);
+      allow create: if owner(ownerId)
+        && blockedId.matches('[0-9]+')
+        && blockedId != ownerId
+        && request.resource.data.keys().hasOnly(['blockedAt'])
+        && request.resource.data.blockedAt is number
+        && request.resource.data.blockedAt >= 0;
+      allow delete: if owner(ownerId);
+      allow update: if false;
+    }
+
+    function blockedEitherWay(senderId, recipientId) {
+      return exists(/databases/$(database)/documents/ez_blocks/$(senderId)/users/$(recipientId))
+        || exists(/databases/$(database)/documents/ez_blocks/$(recipientId)/users/$(senderId));
+    }
+
     match /ez_moves/{moveId} {
       allow create: if telegramUser()
         && request.resource.data.keys().hasOnly([
@@ -68,6 +87,7 @@ service cloud.firestore {
         && request.resource.data.targetUserId is string
         && request.resource.data.targetUserId.matches('[0-9]+')
         && request.resource.data.targetUserId != request.resource.data.fromUserId
+        && !blockedEitherWay(request.resource.data.fromUserId, request.resource.data.targetUserId)
         && exists(/databases/$(database)/documents/ez_users/$(request.resource.data.targetUserId))
         && request.resource.data.myReply is string
         && request.resource.data.myReply.size() <= 1000
