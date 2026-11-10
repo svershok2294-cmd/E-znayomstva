@@ -79,6 +79,33 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /ez_chat_reads/{receiptId} {
+      // Document ID is recipient_sender; only the recipient may mark a thread read.
+      function validReceipt() {
+        return request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'seenAt'])
+          && request.resource.data.recipientId is string
+          && request.resource.data.senderId is string
+          && request.resource.data.recipientId.matches('[0-9]+')
+          && request.resource.data.senderId.matches('[0-9]+')
+          && request.resource.data.recipientId != request.resource.data.senderId
+          && receiptId == request.resource.data.recipientId + '_' + request.resource.data.senderId
+          && request.resource.data.seenAt is number
+          && request.resource.data.seenAt >= 0
+          && request.resource.data.seenAt <= request.time.toMillis() + 60000;
+      }
+      allow get: if telegramUser() && (
+        request.auth.uid == 'telegram:' + resource.data.recipientId ||
+        request.auth.uid == 'telegram:' + resource.data.senderId);
+      allow list, delete: if false;
+      allow create: if telegramUser() && validReceipt()
+        && request.auth.uid == 'telegram:' + request.resource.data.recipientId;
+      allow update: if telegramUser() && validReceipt()
+        && request.auth.uid == 'telegram:' + resource.data.recipientId
+        && request.resource.data.recipientId == resource.data.recipientId
+        && request.resource.data.senderId == resource.data.senderId
+        && request.resource.data.seenAt >= resource.data.seenAt;
+    }
+
     match /ez_reports/{reportId} {
       // Existing client reports have no authenticated reporter field.
       // Create only; do not expose sensitive reports to all users.
