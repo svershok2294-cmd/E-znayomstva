@@ -1456,7 +1456,7 @@
                 if (!db || !tg.initData) throw new Error(!db ? 'FIREBASE_SDK' : 'TELEGRAM_INITDATA');
                 stage = 'server';
                 showStage('Вхід: перевірка сервера…');
-                const response = await fetch('https://e-znayomstva-auth.onrender.com/auth/telegram', {
+                const response = await fetch('https://e-znayomstva-test-auth.onrender.com/auth/telegram', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ initData: tg.initData })
@@ -1892,7 +1892,7 @@
             const currentUser = firebase.auth().currentUser;
             if (!currentUser || !verifiedTelegramUser) throw new Error('Спочатку підтвердь вхід через Telegram.');
             const token = await currentUser.getIdToken();
-            const response = await fetch('https://e-znayomstva-auth.onrender.com/api/moves', {
+            const response = await fetch('https://e-znayomstva-test-auth.onrender.com/api/moves', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
                 body: JSON.stringify({ targetUserId: String(targetUserId), myReply: String(myReply) })
