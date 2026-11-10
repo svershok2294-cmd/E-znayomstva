@@ -1616,7 +1616,7 @@
                 renderAdminLists();
             }, err => {
                 console.warn("Firestore rules notice:", err);
-                document.getElementById('firebase-admin-status').textContent = "⚠️ ПЕРЕВІР FIRESTORE RULES (ДОЗВОЛЬ READ/WRITE ДЛЯ ez_*)";
+                document.getElementById('firebase-admin-status').textContent = "⚠️ FIRESTORE: ДОСТУП ВІДХИЛЕНО. ПЕРЕВІР ПРАВИЛА ТА АВТОРИЗАЦІЮ";
             });
 
             // Reports are visible only with a server-issued admin Firebase claim.
@@ -1943,6 +1943,7 @@
             if (currentIndex >= profiles.length) return;
             const target = profiles[currentIndex];
 
+            if (!isViewingAsAdmin) return;
             if (isFirebaseConnected && db && target.docId) {
                 db.collection('ez_users').doc(target.docId).update({
                     isBanned: true,
@@ -2165,6 +2166,7 @@
         }
 
         function unbanUser(index, docId) {
+            if (!isViewingAsAdmin) return;
             if (isFirebaseConnected && db && docId) {
                 db.collection('ez_users').doc(docId).update({ isBanned: false }).catch(e => console.warn(e));
             } else {
