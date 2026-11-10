@@ -1,0 +1,77 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function telegramUser() {
+      return request.auth != null
+        && request.auth.uid.matches('telegram:[0-9]+');
+    }
+
+    function owner(userId) {
+      return telegramUser() && request.auth.uid == 'telegram:' + userId;
+    }
+
+    match /ez_users/{userId} {
+      // Public profile discovery is limited to verified Telegram users.
+      allow get, list: if telegramUser();
+
+      allow create: if owner(userId)
+        && request.resource.data.keys().hasOnly([
+          'id', 'tgId', 'username', 'name', 'city', 'img', 'tags',
+          'question', 'answer', 'icebreakers', 'isVip', 'isBanned',
+          'trustScore', 'trustLabel', 'createdAt', 'registrationRewardGranted'
+        ])
+        && request.resource.data.tgId == userId
+        && request.resource.data.isVip == false
+        && request.resource.data.isBanned == false
+        && request.resource.data.trustScore == 0
+        && request.resource.data.registrationRewardGranted == true
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.img is string
+        && request.resource.data.img.size() <= 1000000;
+
+      allow update: if owner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'city', 'img', 'tags', 'question', 'answer', 'icebreakers'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.img is string
+        && request.resource.data.img.size() <= 1000000;
+
+      allow delete: if false;
+    }
+
+    match /ez_moves/{moveId} {
+      allow create: if telegramUser()
+        && request.resource.data.keys().hasOnly([
+          'fromUserId', 'targetUsername', 'name', 'city', 'img',
+          'myReply', 'createdAt'
+        ])
+        && request.auth.uid == 'telegram:' + request.resource.data.fromUserId;
+      allow get, list: if telegramUser()
+        && request.auth.uid == 'telegram:' + resource.data.fromUserId;
+      allow update, delete: if false;
+    }
+
+    match /ez_reports/{reportId} {
+      // Existing client reports have no authenticated reporter field.
+      // Create only; do not expose sensitive reports to all users.
+      allow create: if telegramUser()
+        && request.resource.data.keys().hasOnly([
+          'name', 'reason', 'text', 'img', 'createdAt'
+        ]);
+      allow read, update, delete: if false;
+    }
+
+    // Shared revenue/admin data must be written by a trusted backend.
+    match /ez_stats/{docId} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
