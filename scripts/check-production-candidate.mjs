@@ -24,7 +24,17 @@ const checks = [
   ['Production notification button opens main site', () => assert.match(server, /web_app:\s*\{\s*url:\s*'https:\/\/svershok2294-cmd\.github\.io\/E-znayomstva\/'/)],
   ['No test bot notification or polling flags', () => assert.doesNotMatch(server, /ENABLE_TEST_MOVE_NOTIFICATIONS|ENABLE_TEST_BOT_WELCOME/)],
   ['Notification delivery has receipt deduplication', () => assert.match(server, /await receipt\.create\s*\(/)],
-  ['Notification text does not include message content', () => assert.doesNotMatch(server, /text:\s*move\.myReply|text:\s*move\.message/)]
+  ['Notification text does not include message content', () => assert.doesNotMatch(server, /text:\s*move\.myReply|text:\s*move\.message/)],
+  ['Profile move waits for server before card animation', () => {
+    const flow = html.slice(html.indexOf('async function nextProfile('), html.indexOf('function ', html.indexOf('async function nextProfile(') + 20));
+    assert.ok(flow.indexOf('await submitMoveViaServer(') >= 0);
+    assert.ok(flow.indexOf('await submitMoveViaServer(') < flow.indexOf("card.style.transform = isLike"));
+  }],
+  ['Profile move prevents duplicate pending taps', () => assert.match(html, /if \(!card \|\| profileMovePending\) return;/)],
+  ['Failed move restores local cooldown', () => assert.match(html, /lastMessageTimes\.set\(targetId, previousTime\)/)],
+  ['Debut message does not advertise disabled rewards', () => assert.doesNotMatch(html, /Дебютний хід \(\+10/)],
+  ['No client-side diamond minting', () => assert.match(html, /function addVaultPoints\(pts\)\s*\{[^}]*return false;/)]
+
 ];
 let failed = 0;
 for (const [name, run] of checks) {
