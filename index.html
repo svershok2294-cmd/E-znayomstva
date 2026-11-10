@@ -1662,7 +1662,7 @@
             if (!db || !/^\d+$/.test(ownerId) || !/^\d+$/.test(targetId) || ownerId === targetId) return;
             const alreadyBlocked = personalBlockedIds.has(targetId);
             const label = conversationProfiles.get(targetId)?.name || 'цього користувача';
-            if (!confirm(alreadyBlocked ? 'Розблокувати ' + label + '?' : 'Заблокувати ' + label + '? Нові повідомлення між вами будуть заборонені після публікації правил Firebase.')) return;
+            if (!confirm(alreadyBlocked ? 'Розблокувати ' + label + '?' : 'Заблокувати ' + label + '? Після блокування ви не зможете надсилати одне одному нові повідомлення.')) return;
             try {
                 const ref = db.collection('ez_blocks').doc(ownerId).collection('users').doc(targetId);
                 if (alreadyBlocked) await ref.delete();
