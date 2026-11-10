@@ -1439,6 +1439,7 @@
                 const credential = await firebase.auth().signInWithCustomToken(result.token);
                 if (credential.user.uid !== 'telegram:' + result.user.id) throw new Error('Unexpected Firebase identity');
                 verifiedTelegramUser = result.user;
+                restoreConversationSeen();
                 const claims = await credential.user.getIdTokenResult();
                 isViewingAsAdmin = claims.claims.admin === true;
                 document.querySelectorAll('.admin-only-el').forEach(el => {
@@ -1617,7 +1618,11 @@
         let activeConversationId = null;
         let conversationProfiles = new Map();
         let conversationSeen = {};
-        try { conversationSeen = JSON.parse(localStorage.getItem('ez_chat_seen_' + String(verifiedTelegramUser?.id || '')) || '{}') || {}; } catch (_) { conversationSeen = {}; }
+        const conversationDrafts = new Map();
+        function restoreConversationSeen() {
+            try { conversationSeen = JSON.parse(localStorage.getItem('ez_chat_seen_' + String(verifiedTelegramUser?.id || '')) || '{}') || {}; }
+            catch (_) { conversationSeen = {}; }
+        }
         function getConversationMoves() {
             const ownId = String(verifiedTelegramUser?.id || '');
             const threads = new Map();
@@ -2221,7 +2226,8 @@
 
         function updateMatchesUI() {
             const threads = getConversationMoves();
-            document.getElementById('match-count').textContent = sentResponses.length + receivedResponses.length;
+            const unreadTotal = [...threads.entries()].reduce((sum,[id,messages]) => sum + messages.filter(m => m.direction === 'received' && (Number(m.createdAt) || 0) > (Number(conversationSeen[id]) || 0)).length,0);
+            document.getElementById('match-count').textContent = unreadTotal ? '● ' + unreadTotal : String(sentResponses.length + receivedResponses.length);
             const list = document.getElementById('conversation-list');
             const thread = document.getElementById('conversation-thread');
             list.replaceChildren(); thread.replaceChildren();
@@ -2278,6 +2284,8 @@
             });
             const compose = document.createElement('div'); compose.className = 'conversation-compose';
             const input = document.createElement('input'); input.placeholder = 'Напиши повідомлення…'; input.maxLength = 1000;
+            input.value = conversationDrafts.get(otherId) || '';
+            input.addEventListener('input', () => conversationDrafts.set(otherId, input.value));
             input.setAttribute('aria-label','Нове повідомлення');
             const send = document.createElement('button'); send.textContent = '♞ Надіслати';
             const status = document.createElement('div'); status.className = 'conversation-send-status';
@@ -2293,7 +2301,10 @@
                 status.textContent = 'Надсилаємо повідомлення…';
                 const success = await sendReplyToMove(otherId,draft,send);
                 if (success) {
-                    input.value = '';
+                    if (conversationDrafts.get(otherId) === input.value) {
+                        conversationDrafts.delete(otherId);
+                        input.value = '';
+                    }
                     status.textContent = '✓ Надіслано';
                 } else {
                     status.textContent = 'Не вдалося надіслати. Спробуй ще раз.';
