@@ -1597,7 +1597,9 @@
                     const data = doc.data();
                     if (data.isBanned) {
                         cloudBanned.push({ docId: doc.id, ...data });
-                    } else {
+                    } else if (String(doc.id) !== String(verifiedTelegramUser?.id) &&
+                               String(data.tgId) !== String(verifiedTelegramUser?.id)) {
+                        // Never display the signed-in user's own profile in dating feed.
                         cloudProfiles.push({ docId: doc.id, ...data });
                     }
                 });
@@ -2024,9 +2026,9 @@
                     return true;
                 });
                 // New profiles do not receive a reward until a trusted server ledger grants it.
-                const index = profiles.findIndex(p => String(p.tgId) === uid);
-                if (index >= 0) profiles[index] = { ...profiles[index], ...newProfileData };
-                else profiles.splice(currentIndex, 0, newProfileData);
+                // Profile is persisted in Firestore; it must not enter its owner's dating feed.
+                profiles = profiles.filter(p => String(p.tgId) !== uid && String(p.docId) !== uid);
+                currentIndex = 0;
                 renderCard();
                 btn.textContent = "♞ Оновити анкету";
                 openTabDirectly('swipe');
