@@ -2030,22 +2030,48 @@
             document.getElementById('match-count').textContent = sentResponses.length;
             const container = document.getElementById('matches-container');
             if (sentResponses.length === 0) {
-                container.innerHTML = `<div class="box-card" style="text-align:center; color:var(--muted); font-size:12px;">Зроби змістовний перший хід ♞ або надішли подарунок 🎁, щоб почати діалог.</div>`;
+                container.innerHTML = '<div class="box-card" style="text-align:center; color:var(--muted); font-size:12px;">Зроби змістовний перший хід ♞, щоб почати діалог.</div>';
                 return;
             }
-            container.innerHTML = sentResponses.map(p => `
-                <div class="bw-card">
-                    <div class="bw-card-header">
-                        <img class="avatar-sm" src="${p.img}">
-                        <div style="flex:1;">
-                            <h4 style="font-size:13px;">${p.name}</h4>
-                            <p style="font-size:10px; color:var(--muted);">${p.city}</p>
-                        </div>
-                        ${p.targetUsername ? `<a class="btn-sm btn-ban-bw" style="flex:0 0 auto;" href="https://t.me/${p.targetUsername}" target="_blank">💬 Чат</a>` : ''}
-                    </div>
-                    <div class="report-text"><strong>${p.myReply}</strong></div>
-                </div>
-            `).join('');
+            container.replaceChildren();
+            sentResponses.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'bw-card';
+                const header = document.createElement('div');
+                header.className = 'bw-card-header';
+                const avatar = document.createElement('img');
+                avatar.className = 'avatar-sm';
+                const img = String(p.img || '');
+                if (/^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/i.test(img)) avatar.src = img;
+                const details = document.createElement('div');
+                details.style.flex = '1';
+                const name = document.createElement('h4');
+                name.style.fontSize = '13px';
+                name.textContent = String(p.name || '');
+                const city = document.createElement('p');
+                city.style.cssText = 'font-size:10px;color:var(--muted);';
+                city.textContent = String(p.city || '');
+                details.append(name, city);
+                header.append(avatar, details);
+                const username = String(p.targetUsername || '');
+                if (/^[a-zA-Z0-9_]{5,32}$/.test(username)) {
+                    const chat = document.createElement('a');
+                    chat.className = 'btn-sm btn-ban-bw';
+                    chat.style.flex = '0 0 auto';
+                    chat.href = 'https://t.me/' + username;
+                    chat.target = '_blank';
+                    chat.rel = 'noopener noreferrer';
+                    chat.textContent = '💬 Чат';
+                    header.appendChild(chat);
+                }
+                const reply = document.createElement('div');
+                reply.className = 'report-text';
+                const strong = document.createElement('strong');
+                strong.textContent = String(p.myReply || '');
+                reply.appendChild(strong);
+                card.append(header, reply);
+                container.appendChild(card);
+            });
         }
 
         function escapeAdminHtml(value) {
