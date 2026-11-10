@@ -61,27 +61,29 @@ function send(res, status, body, origin = '') {
   res.end(JSON.stringify(body));
 }
 
-function verifyTelegram(initData) {
-  if (!BOT_TOKEN || typeof initData !== 'string' || initData.length > 8192) return null;
+function verifyTelegram(initData, reportFailure = () => {}) {
+  const reject = reason => { reportFailure(reason); return null; };
+  if (!BOT_TOKEN || typeof initData !== 'string' || initData.length > 8192) return reject('invalid_input');
   const params = new URLSearchParams(initData);
   const hashes = params.getAll('hash');
-  if (hashes.length !== 1 || !/^[a-f0-9]{64}$/i.test(hashes[0])) return null;
+  if (hashes.length !== 1 || !/^[a-f0-9]{64}$/i.test(hashes[0])) return reject('invalid_input');
   const pairs = [...params.entries()].filter(([key]) => key !== 'hash' && key !== 'signature');
   const keys = pairs.map(([key]) => key);
-  if (new Set(keys).size !== keys.length) return null;
+  if (new Set(keys).size !== keys.length) return reject('invalid_input');
   const checkString = pairs.sort(([a], [b]) => a.localeCompare(b, 'en')).map(([k, v]) => k + '=' + v).join('\n');
   const secret = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
   const expected = crypto.createHmac('sha256', secret).update(checkString).digest();
   const supplied = Buffer.from(hashes[0], 'hex');
-  if (!crypto.timingSafeEqual(expected, supplied)) return null;
+  if (!crypto.timingSafeEqual(expected, supplied)) return reject('invalid_signature');
   const authDate = Number(params.get('auth_date'));
   const now = Math.floor(Date.now() / 1000);
-  if (!Number.isSafeInteger(authDate) || authDate > now + 30 || now - authDate > MAX_AGE_SECONDS) return null;
+  if (!Number.isSafeInteger(authDate)) return reject('missing_auth_date');
+  if (authDate > now + 30 || now - authDate > MAX_AGE_SECONDS) return reject('expired_auth_date');
   try {
     const user = JSON.parse(params.get('user') || 'null');
-    if (!user || !Number.isSafeInteger(user.id) || user.id <= 0) return null;
+    if (!user || !Number.isSafeInteger(user.id) || user.id <= 0) return reject('invalid_input');
     return { id: user.id, first_name: typeof user.first_name === 'string' ? user.first_name : '', username: typeof user.username === 'string' ? user.username : null };
-  } catch { return null; }
+  } catch { return reject('invalid_input'); }
 }
 
 const server = http.createServer((req, res) => {
@@ -103,7 +105,7 @@ const server = http.createServer((req, res) => {
   });
   req.on('end', async () => {
     try {
-      const user = verifyTelegram(JSON.parse(data).initData);
+      const user = verifyTelegram(JSON.parse(data).initData, reason => console.warn('Telegram auth rejected:', reason));
       if (!user) return send(res, 401, { error: 'Invalid or expired Telegram authentication' }, corsOrigin);
       const isAdmin = ADMIN_TELEGRAM_ID !== '' && String(user.id) === ADMIN_TELEGRAM_ID;
       const token = await getAuth().createCustomToken(
