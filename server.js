@@ -137,7 +137,6 @@ if (process.env.ENABLE_TEST_MOVE_NOTIFICATIONS === 'true' && firebaseReady && BO
   const seenInProcess = new Set();
   const lastSentTo = new Map();
   let initialized = false;
-  const testBotUrl = 'https://t.me/Eznayomstva_test_bot';
 
   async function notifyForMove(change) {
     if (change.type !== 'added' || seenInProcess.has(change.doc.id)) return;
@@ -167,7 +166,7 @@ if (process.env.ENABLE_TEST_MOVE_NOTIFICATIONS === 'true' && firebaseReady && BO
         body: JSON.stringify({
           chat_id: recipient,
           text: '💌 Нове повідомлення в «Е-Знайомства»!\n\n♞ Відкрийте тестовий застосунок, щоб прочитати та відповісти.',
-          reply_markup: { inline_keyboard: [[{ text: '💬 Відкрити Е-Знайомства', url: testBotUrl }]] }
+          reply_markup: { inline_keyboard: [[{ text: '💬 Відкрити Е-Знайомства', web_app: { url: 'https://e-znayomstva-test.onrender.com/' } }]] }
         }),
         signal: AbortSignal.timeout(10000)
       });
