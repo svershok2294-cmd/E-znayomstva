@@ -1563,7 +1563,7 @@
         ];
 
         // Demo cards remain visible only before authenticated Firestore data arrives.
-        let profiles = [...defaultProfiles];
+        let profiles = [];
         // Moderation data must come from Firestore, never fabricated demo incidents.
         let reportsData = [];
         let botsData = [];
@@ -1588,7 +1588,6 @@
                     }
                 });
                 bannedUsers = cloudBanned;
-                // Коли є достатньо живих анкет (від 5+), показуємо тільки реальних людей
                 // Never mix fictitious dating profiles into a verified live feed.
                 profiles = cloudProfiles;
                 currentIndex = 0;
@@ -1596,7 +1595,10 @@
                 renderAdminLists();
             }, err => {
                 console.warn("Firestore rules notice:", err);
-                document.getElementById('firebase-admin-status').textContent = "⚠️ FIRESTORE: ДОСТУП ВІДХИЛЕНО. ПЕРЕВІР ПРАВИЛА ТА АВТОРИЗАЦІЮ";
+                profiles = [];
+                currentIndex = 0;
+                renderCard();
+                document.getElementById('firebase-admin-status').textContent = "⚠️ FIRESTORE: НЕ ВДАЛОСЯ ЗАВАНТАЖИТИ АНКЕТИ. ПЕРЕВІР ПРАВИЛА ТА АВТОРИЗАЦІЮ";
             });
 
             // Reports are visible only with a server-issued admin Firebase claim.
