@@ -1890,13 +1890,13 @@
                     myReply: customReply || "Змістовний хід ♔",
                     createdAt: Date.now()
                 };
-                if (isFirebaseConnected && db && verifiedTelegramUser && /^\\d+$/.test(moveObj.targetUserId) && moveObj.targetUserId !== moveObj.fromUserId) {
+                if (isFirebaseConnected && db && verifiedTelegramUser && /^\d+$/.test(moveObj.targetUserId) && moveObj.targetUserId !== moveObj.fromUserId) {
                     db.collection('ez_moves').add(moveObj).catch(e => {
                         console.warn('Move save failed:', e.code || e.message);
                         alert("Не вдалося зберегти хід. Перевір підключення до Firebase.");
                     });
                 } else {
-                    alert("Спочатку підтвердь вхід через Telegram, щоб зберегти хід.");
+                    alert(!verifiedTelegramUser || !isFirebaseConnected || !db ? "Спочатку підтвердь вхід через Telegram, щоб зберегти хід." : "Не вдалося визначити одержувача ходу. Онови стрічку та спробуй ще раз.");
                 }
             }
 
