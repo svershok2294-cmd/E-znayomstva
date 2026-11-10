@@ -9,6 +9,7 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 // Browser Origin for GitHub Pages contains only scheme + host (no repo path).
 const ALLOWED_ORIGINS = new Set([
   'https://svershok2294-cmd.github.io',
+  'https://e-znayomstva-test.onrender.com',
   ...(process.env.APP_ORIGIN ? [process.env.APP_ORIGIN] : [])
 ]);
 const MAX_AGE_SECONDS = 300;
