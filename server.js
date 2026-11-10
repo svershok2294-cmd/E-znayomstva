@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const PORT = Number(process.env.PORT || 10000);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -127,3 +128,44 @@ if (BOT_TOKEN) {
     .catch(() => console.warn('Configured Telegram bot: LOOKUP_UNAVAILABLE'));
 }
 
+
+// Test-only Telegram notifications. This process must be deployed ONLY to the
+// e-znayomstva-test-auth service: production uses a separate, pinned deployment.
+// The first snapshot is a baseline; historical messages are never re-sent.
+if (process.env.ENABLE_TEST_MOVE_NOTIFICATIONS === 'true' && firebaseReady && BOT_TOKEN) {
+  let initialized = false;
+  const delivered = new Set();
+  const lastSentTo = new Map();
+  const firestore = getFirestore();
+  const movesQuery = firestore.collection('ez_moves').orderBy('createdAt', 'desc').limit(100);
+  movesQuery.onSnapshot(snapshot => {
+    if (!initialized) {
+      snapshot.docs.forEach(doc => delivered.add(doc.id));
+      initialized = true;
+      console.log('Test move notifications: watching new messages');
+      return;
+    }
+    for (const change of snapshot.docChanges()) {
+      if (change.type !== 'added' || delivered.has(change.doc.id)) continue;
+      delivered.add(change.doc.id);
+      const move = change.doc.data() || {};
+      const recipient = String(move.targetUserId || '');
+      const sender = String(move.fromUserId || '');
+      if (!/^[0-9]+$/.test(recipient) || !/^[0-9]+$/.test(sender) || recipient === sender) continue;
+      const now = Date.now();
+      if (now - (lastSentTo.get(recipient) || 0) < 5000) continue;
+      lastSentTo.set(recipient, now);
+      // Never send message bodies or private profile details via bot notification.
+      const text = '💌 Нове повідомлення в «Е-Знайомства»!\n\n♞ Відкрийте тестовий застосунок, щоб прочитати та відповісти.';
+      fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: recipient, text }),
+        signal: AbortSignal.timeout(10000)
+      }).then(res => res.json()).then(result => {
+        if (!result.ok) console.warn('Test notification not delivered:', result.error_code || 'telegram_error');
+      }).catch(err => console.warn('Test notification request failed:', err.message));
+    }
+    if (delivered.size > 5000) delivered.clear();
+  }, err => console.warn('Test notification listener failed:', err.message));
+}
