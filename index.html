@@ -1926,7 +1926,7 @@
                         uploadedPhotoDataUrl = existingPhoto;
                     }
                     document.getElementById('reg-submit-btn').textContent = "♞ Оновити анкету";
-                    localStorage.setItem('chess_registration_reward_' + uid, '1');
+                    // Profile exists; do not imply that any reward was granted.
                 }
             } catch (error) {
                 console.warn("Profile lookup failed:", error.code || error.message);
@@ -1997,14 +1997,10 @@
                     }
                     tx.set(ref, { ...newProfileData, isVip: false, isBanned: false,
                         trustScore: 0, trustLabel: "Новий профіль",
-                        createdAt: Date.now(), registrationRewardGranted: true });
+                        createdAt: Date.now(), registrationRewardGranted: false });
                     return true;
                 });
-                if (firstRegistration) {
-                    // Registration eligibility is recorded in Firestore once.
-                    // Do not credit client-side currency: it is not a trusted ledger.
-                    localStorage.setItem('chess_registration_reward_' + uid, '1');
-                }
+                // New profiles do not receive a reward until a trusted server ledger grants it.
                 const index = profiles.findIndex(p => String(p.tgId) === uid);
                 if (index >= 0) profiles[index] = { ...profiles[index], ...newProfileData };
                 else profiles.splice(currentIndex, 0, newProfileData);
