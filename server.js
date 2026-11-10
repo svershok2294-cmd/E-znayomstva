@@ -8,6 +8,10 @@ const PORT = Number(process.env.PORT || 10000);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ALLOWED_ORIGIN = process.env.APP_ORIGIN || '';
 const MAX_AGE_SECONDS = 300;
+const ADMIN_TELEGRAM_ID = /^\\d+$/.test(process.env.ADMIN_TELEGRAM_ID || '')
+  ? process.env.ADMIN_TELEGRAM_ID
+  : '';
+
 // Repair only accidental literal line breaks inside the private_key JSON string.
 // Keep all other JSON syntax strict; never print credentials in logs.
 function parseServiceAccount(raw) {
@@ -95,7 +99,11 @@ const server = http.createServer((req, res) => {
     try {
       const user = verifyTelegram(JSON.parse(data).initData);
       if (!user) return send(res, 401, { error: 'Invalid or expired Telegram authentication' }, corsOrigin);
-      const token = await getAuth().createCustomToken('telegram:' + user.id);
+      const isAdmin = ADMIN_TELEGRAM_ID !== '' && String(user.id) === ADMIN_TELEGRAM_ID;
+      const token = await getAuth().createCustomToken(
+        'telegram:' + user.id,
+        isAdmin ? { admin: true } : {}
+      );
       return send(res, 200, { verified: true, token, user }, corsOrigin);
     } catch (error) { console.error('Authentication failed:', error.message); return send(res, 500, { error: 'Authentication unavailable' }, corsOrigin); }
   });
