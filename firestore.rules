@@ -29,7 +29,7 @@ service cloud.firestore {
         && request.resource.data.isVip == false
         && request.resource.data.isBanned == false
         && request.resource.data.trustScore == 0
-        && request.resource.data.registrationRewardGranted == true
+        && request.resource.data.registrationRewardGranted == false
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 120
         && request.resource.data.img is string
