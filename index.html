@@ -1892,6 +1892,10 @@
             if (!verifiedTelegramUser || !isFirebaseConnected || !db) { alert('Спочатку підтвердь вхід через Telegram.'); return false; }
             if (!/^\d+$/.test(String(senderId)) || String(senderId) === String(verifiedTelegramUser.id)) return false;
             if (warnMessageCooldown(senderId)) return false;
+            // Reserve the cooldown before awaiting Firestore so rapid taps or rerenders cannot bypass it.
+            const cooldownKey = String(senderId);
+            const previousTime = lastMessageTimes.get(cooldownKey) || 0;
+            recordMessageSent(senderId);
             button.disabled = true;
             try {
                 const doc = await db.collection('ez_users').doc(String(senderId)).get();
@@ -1907,9 +1911,18 @@
                     myReply: text,
                     createdAt: Date.now()
                 });
-                recordMessageSent(senderId);
                 return true;
-            } catch (e) { alert('Не вдалося надіслати відповідь: ' + (e.message || 'Помилка Firebase')); return false; }
+            } catch (e) {
+                // Failed sends must not consume the waiting period.
+                lastMessageTimes.set(cooldownKey, previousTime);
+                try {
+                    const key = 'ez_last_message_' + String(verifiedTelegramUser?.id || '') + '_' + cooldownKey;
+                    if (previousTime) localStorage.setItem(key, String(previousTime));
+                    else localStorage.removeItem(key);
+                } catch (_) {}
+                alert('Не вдалося надіслати відповідь: ' + (e.message || 'Помилка Firebase'));
+                return false;
+            }
             finally { button.disabled = false; }
         }
         let bannedUsers = [];
@@ -2256,7 +2269,10 @@
                     createdAt: Date.now()
                 };
                 if (isFirebaseConnected && db && verifiedTelegramUser && /^\d+$/.test(moveObj.targetUserId) && moveObj.targetUserId !== moveObj.fromUserId) {
-                    db.collection('ez_moves').add(moveObj).then(() => recordMessageSent(moveObj.targetUserId)).catch(e => {
+                    recordMessageSent(moveObj.targetUserId);
+                    db.collection('ez_moves').add(moveObj).catch(e => {
+                        lastMessageTimes.delete(moveObj.targetUserId);
+                        try { localStorage.removeItem('ez_last_message_' + String(verifiedTelegramUser.id) + '_' + moveObj.targetUserId); } catch (_) {}
                         console.warn('Move save failed:', e.code || e.message);
                         alert("Не вдалося зберегти хід. Перевір підключення до Firebase.");
                     });
@@ -2600,6 +2616,14 @@
                 send.disabled = true;
                 send.textContent = '⏳';
                 status.textContent = 'Надсилаємо повідомлення…';
+                if (messageCooldownRemaining(otherId)) {
+                    const seconds = Math.ceil(messageCooldownRemaining(otherId) / 1000);
+                    status.textContent = '⏳ Зачекай ' + seconds + ' с перед наступним повідомленням.';
+                    submitting = false;
+                    send.disabled = false;
+                    send.textContent = '♞ Надіслати';
+                    return;
+                }
                 const success = await sendReplyToMove(otherId,draft,send);
                 if (success) {
                     if (conversationDrafts.get(otherId) === input.value) {
