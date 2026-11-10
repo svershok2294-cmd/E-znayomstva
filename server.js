@@ -44,7 +44,8 @@ function parseServiceAccount(raw) {
 
 let firebaseReady = false;
 try {
-  const key = parseServiceAccount(fs.readFileSync('/etc/secrets/firebase-service-account.json', 'utf8'));
+  const credentialJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || fs.readFileSync('/etc/secrets/firebase-service-account.json', 'utf8');
+  const key = parseServiceAccount(credentialJson);
   if (key.project_id !== 'nazviazku') throw new Error('Unexpected Firebase project');
   initializeApp({ credential: cert(key) });
   firebaseReady = true;
