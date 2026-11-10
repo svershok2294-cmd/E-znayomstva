@@ -1206,7 +1206,7 @@
                             </div>
                             <div class="form-group">
                                 <label>Вік</label>
-                                <input type="number" id="reg-age" class="form-input" value="23">
+                                <input type="number" id="reg-age" class="form-input" min="18" max="99" step="1" required value="23">
                             </div>
                         </div>
 
@@ -2263,7 +2263,13 @@
                 return;
             }
             const name = document.getElementById('reg-name').value.trim() || "Гравець";
-            const age = document.getElementById('reg-age').value.trim() || "22";
+            const age = document.getElementById('reg-age').value.trim();
+            const ageNumber = Number(age);
+            if (!/^\d{2}$/.test(age) || !Number.isInteger(ageNumber) || ageNumber < 18 || ageNumber > 99) {
+                alert('Анкета доступна лише для повнолітніх (18+). Вкажи вік від 18 до 99 років.');
+                document.getElementById('reg-age').focus();
+                return;
+            }
             const city = document.getElementById('reg-city').value.trim() || "Україна";
             const question = document.getElementById('reg-prompt-q').value;
             const answer = document.getElementById('reg-prompt-a').value.trim() || "Чекаю на твій хід!";
