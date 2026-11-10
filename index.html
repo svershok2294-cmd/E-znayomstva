@@ -2200,28 +2200,15 @@
         // 🎁 ЩОДЕННИЙ БОНУС ЗА ВХІД У ДОДАТОК (DAILY RETENTION)
         // =========================================================================
         function checkDailyBonus(isManualClick = false) {
-            const lastLoginDate = localStorage.getItem('chess_last_login_date') || '';
-            const todayStr = new Date().toDateString();
-
-            if (lastLoginDate !== todayStr) {
-                vaultPoints += 15;
-                if (lastLoginDate) dailyStreak += 1;
-                localStorage.setItem('chess_last_login_date', todayStr);
-                saveBalances();
-
-                const btn = document.getElementById('daily-bonus-btn');
-                if (btn) btn.textContent = "✅ Бонус за сьогодні отримано (+15 💎)";
-
-                setTimeout(() => {
-                    playGiftAnimation('💎');
-                    alert(`👑 Щоденний бонус активовано!\nУ твій Королівський Сейф зараховано +15 💎 за вхід у додаток сьогодні (Серія: ${dailyStreak} дн.).`);
-                }, isManualClick ? 50 : 700);
-            } else {
-                const btn = document.getElementById('daily-bonus-btn');
-                if (btn) btn.textContent = "✅ Бонус за сьогодні отримано (+15 💎)";
-                if (isManualClick) {
-                    alert(`Ти вже забрав свій бонус сьогодні (+15 💎)!\nТвоя серія входів: ${dailyStreak} дн. Повертайся завтра за новою нагородою!`);
-                }
+            // Rewards must be granted by a verified backend ledger, never localStorage.
+            // Keep existing locally stored balances untouched during migration.
+            const btn = document.getElementById('daily-bonus-btn');
+            if (btn) {
+                btn.textContent = "⏳ Щоденний бонус тимчасово недоступний";
+                btn.disabled = true;
+            }
+            if (isManualClick) {
+                alert("Щоденний бонус буде доступний після запуску захищеного обліку діамантів.");
             }
         }
 
