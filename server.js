@@ -6,7 +6,11 @@ import { getAuth } from 'firebase-admin/auth';
 
 const PORT = Number(process.env.PORT || 10000);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const ALLOWED_ORIGIN = process.env.APP_ORIGIN || '';
+// Browser Origin for GitHub Pages contains only scheme + host (no repo path).
+const ALLOWED_ORIGINS = new Set([
+  'https://svershok2294-cmd.github.io',
+  ...(process.env.APP_ORIGIN ? [process.env.APP_ORIGIN] : [])
+]);
 const MAX_AGE_SECONDS = 300;
 const ADMIN_TELEGRAM_ID = /^\\d+$/.test(process.env.ADMIN_TELEGRAM_ID || '')
   ? process.env.ADMIN_TELEGRAM_ID
@@ -80,7 +84,7 @@ function verifyTelegram(initData) {
 
 const server = http.createServer((req, res) => {
   const origin = req.headers.origin || '';
-  const corsOrigin = ALLOWED_ORIGIN && origin === ALLOWED_ORIGIN ? origin : '';
+  const corsOrigin = ALLOWED_ORIGINS.has(origin) ? origin : '';
   if (req.url === '/health' && req.method === 'GET') return send(res, 200, { ok: true, configured: Boolean(BOT_TOKEN), firebaseReady });
   if (req.url !== '/auth/telegram') return send(res, 404, { error: 'Not found' });
   if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
@@ -89,7 +93,7 @@ const server = http.createServer((req, res) => {
     return res.end();
   }
   if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' }, corsOrigin);
-  if (!BOT_TOKEN || !ALLOWED_ORIGIN || !firebaseReady) return send(res, 503, { error: 'Authentication not configured' }, corsOrigin);
+  if (!BOT_TOKEN || !firebaseReady) return send(res, 503, { error: 'Authentication not configured' }, corsOrigin);
   let data = '';
   req.on('data', chunk => {
     data += chunk;
