@@ -1477,20 +1477,12 @@
         }
 
         function addVaultPoints(pts) {
-            vaultPoints += pts;
-            saveBalances();
+            // Never mint currency from client events. A trusted backend ledger is required.
+            return false;
         }
 
         function claimVaultReward() {
-            if (vaultPoints < 100) {
-                alert(`У твоєму Сейфі зараз ${vaultPoints} 💎 із 100 💎.\nРоби змістовні перші ходи (+10 💎), даруй подарунки (+25 💎) або заходь щодня (+15 💎), щоб відкрити Сейф безкоштовно!`);
-                return;
-            }
-            vaultPoints -= 100;
-            freeGiftsRemaining += 5;
-            saveBalances();
-            playGiftAnimation('🏦');
-            alert("🎉 Королівський Сейф відкрито! Твій профіль піднято у VIP-ТОП на 3 дні + нараховано 5 безкоштовних подарунків!");
+            alert("Обмін діамантів тимчасово недоступний до запуску захищеного обліку нагород.");
         }
 
         // --- АДАПТИВНИЙ РЕЖИМ (МОБ / ПК) ---
