@@ -1763,40 +1763,12 @@
             nextProfile(false, '');
         }
 
-        function topUpStars(amount) {
-            userStars += amount;
-            adminRevenueStars += amount;
-            saveBalances();
-            playGiftAnimation('⭐️');
-            alert(`✅ Нараховано +${amount} ⭐️ у гаманець!`);
-        }
+        function topUpStars(amount) { alert("Оплата Telegram Stars та бонуси будуть доступні після підключення перевірених серверних платежів."); }
 
-        function payWithTelegramStars(serviceTitle, costStars) {
-            if (userStars < costStars) {
-                const confirmTopUp = confirm(`Для активації «${serviceTitle}» потрібно ${costStars} ⭐️.\nОплатити ${costStars} ⭐️ через Telegram Stars прямо зараз?`);
-                if (!confirmTopUp) return;
-                userStars += costStars;
-                adminRevenueStars += costStars;
-            }
-            userStars -= costStars;
-            addVaultPoints(50);
-            saveBalances();
-            playGiftAnimation('👑');
-            alert(`✅ Статус «${serviceTitle}» активовано! +50 💎 додано у Сейф.`);
-        }
+        function payWithTelegramStars(serviceTitle, costStars) { alert("Оплата Telegram Stars та бонуси будуть доступні після підключення перевірених серверних платежів."); }
 
         function withdrawAdminProfit() {
-            const req = document.getElementById('payout-requisites').value.trim();
-            if (req) localStorage.setItem('chess_ton_wallet', req);
-            if (adminRevenueStars <= 0) {
-                alert("На балансі каси поки 0 ⭐️.");
-                return;
-            }
-            if (!req) {
-                alert("Вкажи адресу свого TON-гаманця!");
-                return;
-            }
-            alert(`💎 Готово до виведення: ${adminRevenueStars} ⭐️ на TON-гаманець:\n${req}`);
+            alert("Виведення коштів недоступне без перевіреного серверного обліку транзакцій.");
         }
 
         function playGiftAnimation(emoji) {
@@ -1818,27 +1790,7 @@
         }
 
         function sendGift(emoji, title, costStars) {
-            if (costStars === 0) {
-                if (freeGiftsRemaining <= 0) {
-                    alert("Твої 5 безкоштовних подарунків закінчилися! Обери преміум-подарунок за Зірки ⭐️.");
-                    return;
-                }
-                freeGiftsRemaining--;
-            } else {
-                if (userStars < costStars) {
-                    const buyNow = confirm(`Подарунок «${title}» коштує ${costStars} ⭐️.\nПоповнити баланс на ${costStars} ⭐️ і надіслати?`);
-                    if (!buyNow) return;
-                    userStars += costStars;
-                    adminRevenueStars += costStars;
-                }
-                userStars -= costStars;
-            }
-
-            addVaultPoints(25);
-            saveBalances();
-            closeGiftModal();
-            playGiftAnimation(emoji);
-            nextProfile(true, `Подарунок (+25 💎): ${emoji} ${title}`);
+            alert("Надсилання подарунків тимчасово недоступне до перевірки балансу на сервері.");
         }
 
         function renderCard() {
