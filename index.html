@@ -1002,6 +1002,21 @@
         .move-reply-row{display:flex;gap:8px;margin-top:10px;align-items:center}
         .move-reply-row input{flex:1;min-width:0;background:#0c0c11;color:white;border:1px solid #46404b;border-radius:10px;padding:11px;font-size:13px}
         .move-reply-row input:focus{outline:1px solid #f5c542}
+        .conversation-item{display:flex;gap:12px;align-items:center;width:100%;text-align:left;color:#f4f4f5;background:linear-gradient(125deg,#1d1b23,#111116);border:1px solid rgba(245,197,66,.25);border-radius:16px;padding:13px;margin:9px 0;cursor:pointer}
+        .conversation-item img,.conversation-header img{width:46px;height:46px;border-radius:50%;object-fit:cover;background:#25242b}
+        .conversation-item .conversation-info{flex:1;min-width:0}
+        .conversation-item .conversation-preview{font-size:12px;color:#a6a6b0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:5px}
+        .conversation-unread{background:#f5c542;color:#17120a;border-radius:20px;min-width:22px;padding:3px 6px;text-align:center;font-weight:900;font-size:11px}
+        .conversation-header{display:flex;align-items:center;gap:12px;padding:10px 4px 16px;border-bottom:1px solid #3c3440}
+        .conversation-back{background:#242027;border:1px solid #66552d;color:#f5c542;border-radius:10px;padding:9px}
+        .conversation-messages{display:flex;flex-direction:column;gap:10px;max-height:55vh;overflow-y:auto;padding:18px 3px}
+        .conversation-bubble{max-width:85%;border-radius:15px;padding:11px 13px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.45}
+        .conversation-bubble.mine{align-self:flex-end;background:#4a3b1c;border:1px solid #8c6a27;color:#fff3d6;border-bottom-right-radius:4px}
+        .conversation-bubble.theirs{align-self:flex-start;background:#24232c;border:1px solid #44414d;color:#f4f4f5;border-bottom-left-radius:4px}
+        .conversation-time{display:block;font-size:10px;opacity:.65;margin-top:5px;text-align:right}
+        .conversation-compose{display:flex;gap:8px;padding:12px 0}
+        .conversation-compose input{min-width:0;flex:1;background:#111116;color:white;border:1px solid #65532d;border-radius:12px;padding:12px}
+        .conversation-compose button{border:0;background:linear-gradient(135deg,#f5c542,#dc9e27);color:#211707;border-radius:12px;padding:10px 14px;font-weight:900}
         </style>
 </head>
 <body>
@@ -1214,7 +1229,7 @@
                 <div class="matches-wrapper">
                     <div class="section-title">♟️ Повідомлення та ходи</div>
                     <div class="move-toolbar"><span>Листування в реальному часі</span><button type="button" id="move-sound-toggle" onclick="toggleMoveSound()">🔔 Звук увімкнено</button></div>
-                    <div id="matches-container"></div>
+                    <div id="conversation-list"></div><div id="conversation-thread" hidden></div><div id="matches-container" hidden></div>
                 </div>
             </div>
 
@@ -1594,6 +1609,54 @@
         let currentIndex = 0;
         let sentResponses = [];
         let receivedResponses = [];
+        let activeConversationId = null;
+        let conversationProfiles = new Map();
+        let conversationSeen = {};
+        try { conversationSeen = JSON.parse(localStorage.getItem('ez_chat_seen_' + String(verifiedTelegramUser?.id || '')) || '{}') || {}; } catch (_) { conversationSeen = {}; }
+        function getConversationMoves() {
+            const ownId = String(verifiedTelegramUser?.id || '');
+            const threads = new Map();
+            [...sentResponses, ...receivedResponses].forEach(move => {
+                const otherId = move.direction === 'received' ? String(move.fromUserId || '') : String(move.targetUserId || '');
+                if (!/^\d+$/.test(otherId) || otherId === ownId) return;
+                if (!threads.has(otherId)) threads.set(otherId, []);
+                threads.get(otherId).push(move);
+            });
+            threads.forEach(messages => messages.sort((a,b) => (a.createdAt || 0) - (b.createdAt || 0)));
+            return threads;
+        }
+        function markConversationSeen(otherId, messages) {
+            const newest = Math.max(0, ...messages.filter(m => m.direction === 'received').map(m => Number(m.createdAt) || 0));
+            conversationSeen[otherId] = Math.max(Number(conversationSeen[otherId]) || 0, newest);
+            try { localStorage.setItem('ez_chat_seen_' + String(verifiedTelegramUser.id), JSON.stringify(conversationSeen)); } catch (_) {}
+        }
+        function openConversation(otherId) {
+            activeConversationId = String(otherId);
+            updateMatchesUI();
+        }
+        function closeConversation() { activeConversationId = null; updateMatchesUI(); }
+        function loadConversationProfile(otherId) {
+            if (conversationProfiles.has(otherId) || !db) return;
+            conversationProfiles.set(otherId, {name:'Користувач #' + otherId.slice(-6), img:'', city:''});
+            db.collection('ez_users').doc(otherId).get().then(doc => {
+                if (!doc.exists) return;
+                const p = doc.data() || {};
+                conversationProfiles.set(otherId, {name:String(p.name || 'Користувач'),img:String(p.img || ''),city:String(p.city || '')});
+                updateMatchesUI();
+            }).catch(err => console.warn('Conversation profile:', err.code || err.message));
+        }
+        function appendConversationAvatar(parent, profile) {
+            const img = String(profile.img || '');
+            if (/^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/i.test(img)) {
+                const avatar = document.createElement('img');
+                avatar.src = img; avatar.alt = '';
+                parent.appendChild(avatar);
+            } else {
+                const placeholder = document.createElement('span');
+                placeholder.textContent = '♞'; placeholder.style.cssText = 'font-size:26px;color:#f5c542;width:46px;text-align:center';
+                parent.appendChild(placeholder);
+            }
+        }
         let moveSoundEnabled = true;
         let audioContextForMoves = null;
         let incomingMoveInitialized = false;
@@ -2152,94 +2215,72 @@
         }
 
         function updateMatchesUI() {
+            const threads = getConversationMoves();
             document.getElementById('match-count').textContent = sentResponses.length + receivedResponses.length;
-            const container = document.getElementById('matches-container');
-            if (sentResponses.length + receivedResponses.length === 0) {
-                container.innerHTML = '<div class="box-card" style="text-align:center; color:var(--muted); font-size:12px;">Поки немає вхідних або надісланих ходів.</div>';
+            const list = document.getElementById('conversation-list');
+            const thread = document.getElementById('conversation-thread');
+            list.replaceChildren(); thread.replaceChildren();
+            const ordered = [...threads.entries()].sort((a,b) => (b[1].at(-1)?.createdAt || 0) - (a[1].at(-1)?.createdAt || 0));
+            if (activeConversationId && !threads.has(activeConversationId)) activeConversationId = null;
+            if (!activeConversationId) {
+                list.hidden = false; thread.hidden = true;
+                if (!ordered.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'box-card';
+                    empty.textContent = 'Поки немає діалогів. Зроби перший хід ♞';
+                    list.appendChild(empty);
+                }
+                ordered.forEach(([otherId, messages]) => {
+                    loadConversationProfile(otherId);
+                    const p = conversationProfiles.get(otherId) || {name:'Користувач #' + otherId.slice(-6),img:''};
+                    const btn = document.createElement('button');
+                    btn.type = 'button'; btn.className = 'conversation-item';
+                    appendConversationAvatar(btn,p);
+                    const info = document.createElement('div'); info.className = 'conversation-info';
+                    const title = document.createElement('strong'); title.textContent = p.name;
+                    const preview = document.createElement('div'); preview.className = 'conversation-preview';
+                    const last = messages.at(-1);
+                    preview.textContent = (last.direction === 'sent' ? 'Ви: ' : '') + String(last.myReply || '');
+                    info.append(title,preview); btn.appendChild(info);
+                    const unread = messages.filter(m => m.direction === 'received' && (Number(m.createdAt) || 0) > (Number(conversationSeen[otherId]) || 0)).length;
+                    if (unread) {
+                        const count = document.createElement('span'); count.className = 'conversation-unread'; count.textContent = String(unread);
+                        btn.appendChild(count);
+                    }
+                    btn.addEventListener('click', () => openConversation(otherId));
+                    list.appendChild(btn);
+                });
                 return;
             }
-            container.replaceChildren();
-            const allMoves = [...receivedResponses, ...sentResponses].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-            allMoves.forEach(p => {
-                const card = document.createElement('div');
-                card.className = 'bw-card ' + (p.direction === 'received' ? 'incoming-move' : 'outgoing-move');
-                const header = document.createElement('div');
-                header.className = 'bw-card-header';
-                const avatar = document.createElement('img');
-                avatar.className = 'avatar-sm';
-                const img = String(p.img || '');
-                if (/^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/i.test(img)) avatar.src = img;
-                const details = document.createElement('div');
-                details.style.flex = '1';
-                const name = document.createElement('h4');
-                name.style.fontSize = '13px';
-                name.textContent = String(p.name || '');
-                const city = document.createElement('p');
-                city.style.cssText = 'font-size:10px;color:var(--muted);';
-                city.textContent = String(p.city || '');
-                details.append(name, city);
-                header.append(avatar, details);
-                const directionLabel = document.createElement('span');
-                directionLabel.style.cssText = 'font-size:11px;color:var(--gold);font-weight:800;';
-                directionLabel.textContent = p.direction === 'received' ? '📩 Вхідний хід' : '📤 Надісланий хід';
-                details.prepend(directionLabel);
-                if (p.direction === 'received') {
-                    name.textContent = 'Користувач #' + String(p.fromUserId || '').slice(-6);
-                    city.textContent = 'Повідомлення для тебе';
-                    avatar.removeAttribute('src');
-                    // Resolve the sender's public profile; never trust the recipient fields
-                    // saved on the move as the sender's identity.
-                    const senderId = String(p.fromUserId || '');
-                    if (/^\d+$/.test(senderId) && db) {
-                        db.collection('ez_users').doc(senderId).get().then(senderDoc => {
-                            if (!senderDoc.exists || !card.isConnected) return;
-                            const sender = senderDoc.data() || {};
-                            if (sender.isBanned) return;
-                            const senderName = String(sender.name || '').trim();
-                            if (senderName) name.textContent = senderName;
-                            const senderCity = String(sender.city || '').trim();
-                            city.textContent = senderCity || 'Повідомлення для тебе';
-                            const senderImage = String(sender.img || '');
-                            if (/^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/i.test(senderImage)) avatar.src = senderImage;
-                        }).catch(err => console.warn('Sender profile:', err.code || err.message));
-                    }
-                }
-                const username = p.direction === 'sent' ? String(p.targetUsername || '') : '';
-                if (/^[a-zA-Z0-9_]{5,32}$/.test(username)) {
-                    const chat = document.createElement('a');
-                    chat.className = 'btn-sm btn-ban-bw';
-                    chat.style.flex = '0 0 auto';
-                    chat.href = 'https://t.me/' + username;
-                    chat.target = '_blank';
-                    chat.rel = 'noopener noreferrer';
-                    chat.textContent = '💬 Чат';
-                    header.appendChild(chat);
-                }
-                const reply = document.createElement('div');
-                reply.className = 'report-text';
-                const strong = document.createElement('strong');
-                strong.textContent = String(p.myReply || '');
-                reply.appendChild(strong);
-                card.append(header, reply);
-                if (p.direction === 'received') {
-                    const replyRow = document.createElement('div');
-                    replyRow.className = 'move-reply-row';
-                    const replyInput = document.createElement('input');
-                    replyInput.type = 'text';
-                    replyInput.maxLength = 1000;
-                    replyInput.placeholder = 'Напиши відповідь…';
-                    replyInput.setAttribute('aria-label', 'Відповідь на вхідний хід');
-                    const replyButton = document.createElement('button');
-                    replyButton.className = 'move-reply-btn';
-                    replyButton.textContent = '♞ Відповісти';
-                    replyButton.addEventListener('click', async () => {
-                        if (await sendReplyToMove(p.fromUserId, replyInput.value, replyButton)) replyInput.value = '';
-                    });
-                    replyRow.append(replyInput, replyButton);
-                    card.appendChild(replyRow);
-                }
-                container.appendChild(card);
+            list.hidden = true; thread.hidden = false;
+            const otherId = activeConversationId, messages = threads.get(otherId) || [];
+            loadConversationProfile(otherId);
+            const p = conversationProfiles.get(otherId) || {name:'Користувач #' + otherId.slice(-6),img:''};
+            const header = document.createElement('div'); header.className = 'conversation-header';
+            const back = document.createElement('button'); back.className = 'conversation-back'; back.textContent = '← Назад';
+            back.addEventListener('click',closeConversation); header.appendChild(back);
+            appendConversationAvatar(header,p);
+            const name = document.createElement('strong'); name.textContent = p.name; header.appendChild(name);
+            const body = document.createElement('div'); body.className = 'conversation-messages';
+            messages.forEach(m => {
+                const bubble = document.createElement('div');
+                bubble.className = 'conversation-bubble ' + (m.direction === 'sent' ? 'mine' : 'theirs');
+                const msg = document.createElement('span'); msg.textContent = String(m.myReply || '');
+                const time = document.createElement('small'); time.className = 'conversation-time';
+                const t = Number(m.createdAt);
+                time.textContent = Number.isFinite(t) && t > 0 ? new Date(t).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+                bubble.append(msg,time); body.appendChild(bubble);
             });
+            const compose = document.createElement('div'); compose.className = 'conversation-compose';
+            const input = document.createElement('input'); input.placeholder = 'Напиши повідомлення…'; input.maxLength = 1000;
+            input.setAttribute('aria-label','Нове повідомлення');
+            const send = document.createElement('button'); send.textContent = '♞ Надіслати';
+            const submit = async () => { if (await sendReplyToMove(otherId,input.value,send)) input.value = ''; };
+            send.addEventListener('click',submit);
+            input.addEventListener('keydown',e => { if (e.key === 'Enter') submit(); });
+            compose.append(input,send); thread.append(header,body,compose);
+            body.scrollTop = body.scrollHeight;
+            markConversationSeen(otherId,messages);
         }
 
         function escapeAdminHtml(value) {
