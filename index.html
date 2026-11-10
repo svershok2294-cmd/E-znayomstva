@@ -1462,12 +1462,8 @@
             localStorage.setItem('chess_daily_streak', String(dailyStreak));
             updateBalancesUI();
 
-            if (isFirebaseConnected && db) {
-                db.collection('ez_stats').doc('global_cashbox').set({
-                    adminRevenueStars: adminRevenueStars,
-                    updatedAt: Date.now()
-                }, { merge: true }).catch(e => console.warn(e));
-            }
+            // Never write shared revenue totals from a client-controlled balance.
+            // A verified server-side ledger is required for real payments/rewards.
         }
 
         function updateBalancesUI() {
