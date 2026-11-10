@@ -7,6 +7,10 @@ service cloud.firestore {
         && request.auth.uid.matches('telegram:[0-9]+');
     }
 
+    function admin() {
+      return telegramUser() && request.auth.token.admin == true;
+    }
+
     function owner(userId) {
       return telegramUser() && request.auth.uid == 'telegram:' + userId;
     }
@@ -31,14 +35,14 @@ service cloud.firestore {
         && request.resource.data.img is string
         && request.resource.data.img.size() <= 1000000;
 
-      allow update: if owner(userId)
+      allow update: if admin() || (owner(userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name', 'city', 'img', 'tags', 'question', 'answer', 'icebreakers'
         ])
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 120
         && request.resource.data.img is string
-        && request.resource.data.img.size() <= 1000000;
+        && request.resource.data.img.size() <= 1000000);
 
       allow delete: if false;
     }
@@ -62,7 +66,8 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'name', 'reason', 'text', 'img', 'createdAt'
         ]);
-      allow read, update, delete: if false;
+      allow get, list, delete: if admin();
+      allow update: if false;
     }
 
     // Shared revenue/admin data must be written by a trusted backend.
