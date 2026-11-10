@@ -2107,23 +2107,24 @@
                 `).join('');
         }
 
-        function handleReport(id, isBan) {
+        async function handleReport(id, isBan) {
+            if (!isViewingAsAdmin || !isFirebaseConnected || !db) return;
             const item = reportsData.find(r => r.id === id);
-            if (isFirebaseConnected && db) {
-                db.collection('ez_reports').doc(id).delete().catch(e => console.warn(e));
+            if (!item) return;
+            try {
+                // A report is not proof of misconduct. Never create a fake ban.
+                // Actual profile bans require a verified target profile ID and separate review.
+                await db.collection('ez_reports').doc(id).delete();
+            } catch (error) {
+                console.warn('Report moderation failed:', error.code || error.message);
+                alert("Не вдалося обробити скаргу. Перевір права адміністратора.");
             }
-            reportsData = reportsData.filter(r => r.id !== id);
-            if (isBan && item) {
-                bannedUsers.push({ name: item.name, reason: item.reason, img: item.img });
-            }
-            renderAdminLists();
         }
 
         function handleBot(id, isBan) {
-            const item = botsData.find(b => b.id === id);
-            botsData = botsData.filter(b => b.id !== id);
-            if (isBan && item) bannedUsers.push({ name: item.name, reason: "Спам-бот", img: item.img });
-            renderAdminLists();
+            // No server-backed bot detection is implemented yet.
+            if (!isViewingAsAdmin) return;
+            alert("Автоматичне блокування ботів ще не підключено.");
         }
 
         function unbanUser(index, docId) {
