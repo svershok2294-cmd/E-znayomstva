@@ -1889,6 +1889,32 @@
         // Test rollout switch. Keep false until the test auth backend endpoint is enabled and verified.
         // Test host defaults to server sends; ?serverMoves=0 is an emergency test-only rollback.
         const USE_TEST_SERVER_MOVES = location.hostname === 'e-znayomstva-test.onrender.com' && new URLSearchParams(location.search).get('serverMoves') !== '0';
+        // Read-only security diagnostic: no credentials, no message, no database writes.
+        if (location.hostname === 'e-znayomstva-test.onrender.com' &&
+            new URLSearchParams(location.search).get('antispamCheck') === '1') {
+            window.addEventListener('load', async () => {
+                const panel = document.createElement('div');
+                panel.style.cssText = 'position:fixed;bottom:76px;left:12px;right:12px;z-index:99999;background:#121217;color:#f5c542;border:1px solid #f5c542;border-radius:12px;padding:14px;font:14px sans-serif;';
+                panel.textContent = '🔐 Перевіряю захист сервера…';
+                document.body.appendChild(panel);
+                try {
+                    const response = await fetch('https://e-znayomstva-test-auth.onrender.com/api/moves', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ targetUserId: '0', myReply: 'security-check-no-send' })
+                    });
+                    panel.textContent = response.status === 401
+                        ? '✅ Сервер відхилив запит без авторизації (HTTP 401). Повідомлення не надіслано.'
+                        : '⚠️ Неочікувана відповідь сервера: HTTP ' + response.status + '.';
+                } catch (_) {
+                    panel.textContent = '⚠️ Не вдалося перевірити сервер. Спробуй пізніше.';
+                }
+                const close = document.createElement('button');
+                close.textContent = ' ✕';
+                close.style.cssText = 'margin-left:12px;background:transparent;color:white;border:0;font-size:18px;';
+                close.onclick = () => panel.remove();
+                panel.appendChild(close);
+            });
+        }
         async function submitMoveViaServer(targetUserId, myReply) {
             const currentUser = firebase.auth().currentUser;
             if (!currentUser || !verifiedTelegramUser) throw new Error('Спочатку підтвердь вхід через Telegram.');
