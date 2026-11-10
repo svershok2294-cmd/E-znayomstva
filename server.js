@@ -88,7 +88,7 @@ function verifyTelegram(initData, reportFailure = () => {}) {
   } catch { return reject('invalid_input'); }
 }
 
-// Opt-in test endpoint. Disabled unless ENABLE_TEST_SERVER_MOVES=true on the test backend.
+// Server-owned message creation. Candidate-only: production requires explicit ENABLE_SERVER_MOVES=true.
 async function createRateLimitedMove(body, idToken) {
   if (!firebaseReady) return { status: 503, body: { error: 'Firebase unavailable' } };
   const decoded = await getAuth().verifyIdToken(idToken, true);
@@ -138,7 +138,7 @@ const server = http.createServer((req, res) => {
   const origin = req.headers.origin || '';
   const corsOrigin = ALLOWED_ORIGINS.has(origin) ? origin : '';
   if (req.url === '/health' && req.method === 'GET') return send(res, 200, { ok: true, configured: Boolean(BOT_TOKEN), firebaseReady });
-  if (req.url === '/api/moves' && process.env.ENABLE_TEST_SERVER_MOVES === 'true') {
+  if (req.url === '/api/moves' && process.env.ENABLE_SERVER_MOVES === 'true') {
     if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
     if (req.method === 'OPTIONS') {
       res.writeHead(204, { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Vary': 'Origin' });
@@ -157,7 +157,7 @@ const server = http.createServer((req, res) => {
         return send(res, result.status, result.body, corsOrigin);
       } catch (error) {
         if (error.code?.startsWith?.('auth/')) return send(res, 401, { error: 'Invalid authentication' }, corsOrigin);
-        console.error('Test move endpoint:', error.code || error.message);
+        console.error('Move endpoint:', error.code || error.message);
         return send(res, 500, { error: 'Message unavailable' }, corsOrigin);
       }
     });
