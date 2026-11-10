@@ -1190,7 +1190,7 @@
                             <p style="font-size:11px; color:var(--muted); margin-top:2px;">Анкета зберігається у хмарній базі Firebase і миттєво стає доступною для всіх гравців.</p>
                         </div>
 
-                        <input type="file" id="reg-photo-input" accept="image/*" style="display:none" onchange="previewRegPhoto(event)">
+                        <input type="file" id="reg-photo-input" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="previewRegPhoto(event)">
                         <div class="photo-upload-box" onclick="document.getElementById('reg-photo-input').click()">
                             <img id="reg-photo-preview" class="photo-preview" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80" alt="Прев'ю">
                             <div>
@@ -1913,11 +1913,22 @@
         function previewRegPhoto(event) {
             const file = event.target.files[0];
             if (!file) return;
-            document.getElementById('photo-status-text').textContent = "⏳ Оптимізація фото для хмари...";
+            const photoStatus = document.getElementById('photo-status-text');
+            if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size === 0 || file.size > 8 * 1024 * 1024) {
+                event.target.value = '';
+                photoStatus.textContent = '❌ Лише JPG, PNG або WebP до 8 МБ.';
+                return;
+            }
+            photoStatus.textContent = "⏳ Оптимізація фото для хмари...";
             const reader = new FileReader();
             reader.onload = function(e) {
                 const img = new Image();
                 img.onload = function() {
+                    if (img.width < 100 || img.height < 100 || img.width * img.height > 24000000) {
+                        photoStatus.textContent = '❌ Некоректний розмір фото (мінімум 100×100).';
+                        event.target.value = '';
+                        return;
+                    }
                     const canvas = document.createElement('canvas');
                     const maxSize = 600;
                     let w = img.width;
@@ -1937,7 +1948,15 @@
                     document.getElementById('reg-photo-preview').src = uploadedPhotoDataUrl;
                     document.getElementById('photo-status-text').textContent = "✅ Фото оптимізовано і готове до збереження!";
                 };
+                img.onerror = function() {
+                    photoStatus.textContent = '❌ Файл не вдалося відкрити як фото.';
+                    event.target.value = '';
+                };
                 img.src = e.target.result;
+            };
+            reader.onerror = function() {
+                photoStatus.textContent = '❌ Помилка читання фото.';
+                event.target.value = '';
             };
             reader.readAsDataURL(file);
         }
