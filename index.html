@@ -1584,6 +1584,7 @@
 
         let currentIndex = 0;
         let sentResponses = [];
+        let receivedResponses = [];
         let bannedUsers = [];
 
         // Слухачі реального часу Firebase Firestore
@@ -1626,12 +1627,15 @@
                   }, err => console.warn('Admin reports:', err.code || err.message));
             }
 
-            db.collection('ez_moves').where('fromUserId', '==', String(verifiedTelegramUser.id)).limit(30).onSnapshot(snapshot => {
-                const moves = [];
-                snapshot.forEach(doc => moves.push(doc.data()));
-                sentResponses = moves;
+            const myId = String(verifiedTelegramUser.id);
+            db.collection('ez_moves').where('fromUserId', '==', myId).limit(30).onSnapshot(snapshot => {
+                sentResponses = snapshot.docs.map(doc => ({ moveId: doc.id, ...doc.data(), direction: 'sent' }));
                 updateMatchesUI();
-            }, err => console.warn(err));
+            }, err => console.warn('Outgoing moves:', err.code || err.message));
+            db.collection('ez_moves').where('targetUserId', '==', myId).limit(30).onSnapshot(snapshot => {
+                receivedResponses = snapshot.docs.map(doc => ({ moveId: doc.id, ...doc.data(), direction: 'received' }));
+                updateMatchesUI();
+            }, err => console.warn('Incoming moves:', err.code || err.message));
         }
 
         // --- АВТОМАТИЧНЕ СТИСНЕННЯ ФОТО ДО 45 КБ ДЛЯ FIREBASE ---
@@ -1877,7 +1881,8 @@
             if (isLike) {
                 const targetProfile = profiles[currentIndex];
                 const moveObj = {
-                    fromUserId: String(currentUserId),
+                    fromUserId: String(verifiedTelegramUser.id),
+                    targetUserId: String(targetProfile.docId || targetProfile.tgId || ''),
                     targetUsername: targetProfile.username || "",
                     name: targetProfile.name,
                     city: targetProfile.city,
@@ -1885,7 +1890,7 @@
                     myReply: customReply || "Змістовний хід ♔",
                     createdAt: Date.now()
                 };
-                if (isFirebaseConnected && db && verifiedTelegramUser) {
+                if (isFirebaseConnected && db && verifiedTelegramUser && /^\\d+$/.test(moveObj.targetUserId) && moveObj.targetUserId !== moveObj.fromUserId) {
                     db.collection('ez_moves').add(moveObj).catch(e => {
                         console.warn('Move save failed:', e.code || e.message);
                         alert("Не вдалося зберегти хід. Перевір підключення до Firebase.");
@@ -2072,14 +2077,15 @@
         }
 
         function updateMatchesUI() {
-            document.getElementById('match-count').textContent = sentResponses.length;
+            document.getElementById('match-count').textContent = sentResponses.length + receivedResponses.length;
             const container = document.getElementById('matches-container');
-            if (sentResponses.length === 0) {
-                container.innerHTML = '<div class="box-card" style="text-align:center; color:var(--muted); font-size:12px;">Зроби змістовний перший хід ♞, щоб почати діалог.</div>';
+            if (sentResponses.length + receivedResponses.length === 0) {
+                container.innerHTML = '<div class="box-card" style="text-align:center; color:var(--muted); font-size:12px;">Поки немає вхідних або надісланих ходів.</div>';
                 return;
             }
             container.replaceChildren();
-            sentResponses.forEach(p => {
+            const allMoves = [...receivedResponses, ...sentResponses].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            allMoves.forEach(p => {
                 const card = document.createElement('div');
                 card.className = 'bw-card';
                 const header = document.createElement('div');
@@ -2098,7 +2104,16 @@
                 city.textContent = String(p.city || '');
                 details.append(name, city);
                 header.append(avatar, details);
-                const username = String(p.targetUsername || '');
+                const directionLabel = document.createElement('span');
+                directionLabel.style.cssText = 'font-size:11px;color:var(--gold);font-weight:800;';
+                directionLabel.textContent = p.direction === 'received' ? '📩 Вхідний хід' : '📤 Надісланий хід';
+                details.prepend(directionLabel);
+                if (p.direction === 'received') {
+                    name.textContent = 'Користувач #' + String(p.fromUserId || '').slice(-6);
+                    city.textContent = 'Повідомлення для тебе';
+                    avatar.removeAttribute('src');
+                }
+                const username = p.direction === 'sent' ? String(p.targetUsername || '') : '';
                 if (/^[a-zA-Z0-9_]{5,32}$/.test(username)) {
                     const chat = document.createElement('a');
                     chat.className = 'btn-sm btn-ban-bw';
