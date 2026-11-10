@@ -1935,19 +1935,48 @@
         }
 
         async function refreshRegistrationState() {
+            if (!db || !verifiedTelegramUser || !firebase.auth().currentUser) return;
+            const btn = document.getElementById('reg-submit-btn');
+            btn.disabled = true;
             try {
                 const uid = String(verifiedTelegramUser.id);
+                if (firebase.auth().currentUser.uid !== 'telegram:' + uid) return;
                 const snap = await db.collection('ez_users').doc(uid).get();
-                if (snap.exists) {
-                    const existingPhoto = snap.data()?.img;
-                    if (typeof existingPhoto === 'string' && existingPhoto) {
-                        uploadedPhotoDataUrl = existingPhoto;
-                    }
-                    document.getElementById('reg-submit-btn').textContent = "♞ Оновити анкету";
-                    // Profile exists; do not imply that any reward was granted.
+                if (!snap.exists) {
+                    btn.textContent = "♞ Зберегти анкету в Firebase";
+                    return;
                 }
+                const profile = snap.data() || {};
+                const nameAge = typeof profile.name === 'string'
+                    ? profile.name.match(new RegExp('^(.*),\\s*(\\d{1,3})$')) : null;
+                document.getElementById('reg-name').value = nameAge ? nameAge[1] : (profile.name || '');
+                document.getElementById('reg-age').value = nameAge ? nameAge[2] : '';
+                document.getElementById('reg-city').value = typeof profile.city === 'string'
+                    ? profile.city.replace(new RegExp('\\s*•\\s*Онлайн\\s*$'), '') : '';
+                document.getElementById('reg-prompt-a').value = typeof profile.answer === 'string'
+                    ? profile.answer.replace(new RegExp('^«'), '').replace(new RegExp('»$'), '') : '';
+                const question = document.getElementById('reg-prompt-q');
+                if (typeof profile.question === 'string' &&
+                    Array.from(question.options).some(option => option.value === profile.question)) {
+                    question.value = profile.question;
+                }
+                const tags = Array.isArray(profile.tags) ? profile.tags : [];
+                document.querySelectorAll('#reg-tags-box .tag-choice').forEach(el => {
+                    el.classList.toggle('selected', tags.includes(el.textContent));
+                });
+                if (typeof profile.img === 'string' && profile.img) {
+                    uploadedPhotoDataUrl = profile.img;
+                    document.getElementById('reg-photo-preview').src = profile.img;
+                    document.getElementById('photo-status-text').textContent = '✅ Збережене фото з Firebase';
+                }
+                btn.textContent = "♞ Оновити анкету";
             } catch (error) {
                 console.warn("Profile lookup failed:", error.code || error.message);
+                btn.textContent = "⚠️ Не вдалося завантажити анкету";
+                alert("Не вдалося завантажити збережену анкету. Спробуй перезапустити застосунок.");
+                return;
+            } finally {
+                if (btn.textContent !== "⚠️ Не вдалося завантажити анкету") btn.disabled = false;
             }
         }
         let registrationSaving = false;
