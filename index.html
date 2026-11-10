@@ -2040,29 +2040,30 @@
             }
         }
 
-        function reportCurrentProfile() {
+        async function reportCurrentProfile() {
             if (currentIndex >= profiles.length) return;
             const target = profiles[currentIndex];
-            const reason = prompt(`Чому ти хочеш поскаржитися на анкету «${target.name}»?`, "Спам / Фейкова анкета");
-            if (!reason) return;
-
+            if (!isFirebaseConnected || !db || !verifiedTelegramUser || !firebase.auth().currentUser) {
+                alert('Дочекайся підтвердження входу через Telegram, щоб надіслати скаргу.');
+                return;
+            }
+            const reason = prompt(`Чому ти хочеш поскаржитися на анкету «${target.name}»?`, 'Спам / Фейкова анкета');
+            if (!reason || !reason.trim()) return;
             const repObj = {
-                name: `${target.name} (${target.id})`,
-                reason: "Скарга зі стрічки",
-                text: `Користувач ${currentUserName} подав скаргу: «${reason}»`,
-                img: target.img,
+                name: String(target.name || 'Анкета').slice(0, 120),
+                reason: 'Скарга зі стрічки',
+                text: String(reason).trim().slice(0, 500),
+                img: typeof target.img === 'string' ? target.img.slice(0, 750000) : '',
                 createdAt: Date.now()
             };
-
-            if (isFirebaseConnected && db) {
-                db.collection('ez_reports').add(repObj).catch(e => console.warn(e));
-            } else {
-                reportsData.unshift({ id: 'rep-' + Date.now(), ...repObj });
-                renderAdminLists();
+            try {
+                await db.collection('ez_reports').add(repObj);
+                alert('✅ Скаргу успішно передано на розгляд.');
+                nextProfile(false, '');
+            } catch (error) {
+                console.warn('Report submission failed:', error);
+                alert('❌ Не вдалося надіслати скаргу. Спробуй ще раз пізніше.');
             }
-
-            alert("✅ Скаргу миттєво передано в Адмін-центр.");
-            nextProfile(false, '');
         }
 
         function topUpStars(amount) { alert("Оплата Telegram Stars та бонуси будуть доступні після підключення перевірених серверних платежів."); }
