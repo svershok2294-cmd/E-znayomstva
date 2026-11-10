@@ -88,10 +88,81 @@ function verifyTelegram(initData, reportFailure = () => {}) {
   } catch { return reject('invalid_input'); }
 }
 
+// Opt-in test endpoint. Disabled unless ENABLE_TEST_SERVER_MOVES=true on the test backend.
+async function createRateLimitedMove(body, idToken) {
+  if (!firebaseReady) return { status: 503, body: { error: 'Firebase unavailable' } };
+  const decoded = await getAuth().verifyIdToken(idToken, true);
+  if (!/^telegram:[0-9]+$/.test(decoded.uid)) return { status: 401, body: { error: 'Invalid account' } };
+  const sender = decoded.uid.slice('telegram:'.length);
+  const recipient = String(body.targetUserId || '');
+  const message = body.myReply;
+  if (!/^[0-9]+$/.test(recipient) || recipient === sender ||
+      typeof message !== 'string' || !message.trim() || message.length > 1000) {
+    return { status: 400, body: { error: 'Invalid recipient or message' } };
+  }
+  const firestore = getFirestore();
+  const limitRef = firestore.collection('ez_message_limits').doc(sender + '_' + recipient);
+  const userRef = firestore.collection('ez_users').doc(recipient);
+  const blockedBySender = firestore.collection('ez_blocks').doc(sender).collection('users').doc(recipient);
+  const blockedByRecipient = firestore.collection('ez_blocks').doc(recipient).collection('users').doc(sender);
+  const now = Date.now();
+  const result = await firestore.runTransaction(async tx => {
+    // All reads precede all writes. Firestore retries this transaction on contention.
+    const [limit, user, block1, block2] = await Promise.all([
+      tx.get(limitRef), tx.get(userRef), tx.get(blockedBySender), tx.get(blockedByRecipient)
+    ]);
+    if (!user.exists || user.data().isBanned) return { status: 404, body: { error: 'Recipient unavailable' } };
+    if (block1.exists || block2.exists) return { status: 403, body: { error: 'Messaging blocked' } };
+    const previous = Number(limit.data()?.lastSentAt || 0);
+    const remaining = 5000 - (Date.now() - previous);
+    if (remaining > 0) return { status: 429, body: { error: 'Slow down', retryAfterSeconds: Math.ceil(remaining / 1000) } };
+    const target = user.data();
+    const newMove = firestore.collection('ez_moves').doc();
+    tx.create(newMove, {
+      fromUserId: sender,
+      targetUserId: recipient,
+      targetUsername: String(target.username || '').slice(0, 128),
+      name: String(target.name || '').slice(0, 120),
+      city: String(target.city || '').slice(0, 150),
+      img: String(target.img || '').slice(0, 750000),
+      myReply: message.trim(),
+      createdAt: Date.now()
+    });
+    tx.set(limitRef, { lastSentAt: Date.now() }, { merge: true });
+    return { status: 201, body: { ok: true, moveId: newMove.id } };
+  });
+  return result;
+}
+
 const server = http.createServer((req, res) => {
   const origin = req.headers.origin || '';
   const corsOrigin = ALLOWED_ORIGINS.has(origin) ? origin : '';
   if (req.url === '/health' && req.method === 'GET') return send(res, 200, { ok: true, configured: Boolean(BOT_TOKEN), firebaseReady });
+  if (req.url === '/api/moves' && process.env.ENABLE_TEST_SERVER_MOVES === 'true') {
+    if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Vary': 'Origin' });
+      return res.end();
+    }
+    if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' }, corsOrigin);
+    const authorization = String(req.headers.authorization || '');
+    if (!/^Bearer [A-Za-z0-9._-]+$/.test(authorization)) return send(res, 401, { error: 'Missing token' }, corsOrigin);
+    let raw = '';
+    req.on('data', chunk => { raw += chunk; if (raw.length > 8192) req.destroy(); });
+    req.on('end', async () => {
+      try {
+        const body = JSON.parse(raw);
+        if (!body || typeof body !== 'object' || Array.isArray(body)) return send(res, 400, { error: 'Invalid body' }, corsOrigin);
+        const result = await createRateLimitedMove(body, authorization.slice(7));
+        return send(res, result.status, result.body, corsOrigin);
+      } catch (error) {
+        if (error.code?.startsWith?.('auth/')) return send(res, 401, { error: 'Invalid authentication' }, corsOrigin);
+        console.error('Test move endpoint:', error.code || error.message);
+        return send(res, 500, { error: 'Message unavailable' }, corsOrigin);
+      }
+    });
+    return;
+  }
   if (req.url !== '/auth/telegram') return send(res, 404, { error: 'Not found' });
   if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
   if (req.method === 'OPTIONS') {
