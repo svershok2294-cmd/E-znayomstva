@@ -1190,7 +1190,7 @@
                             <p style="font-size:11px; color:var(--muted); margin-top:2px;">Анкета зберігається у хмарній базі Firebase і миттєво стає доступною для всіх гравців.</p>
                         </div>
 
-                        <input type="file" id="reg-photo-input" accept="image/*" style="display:none" onchange="previewRegPhoto(event)">
+                        <input type="file" id="reg-photo-input" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="previewRegPhoto(event)">
                         <div class="photo-upload-box" onclick="document.getElementById('reg-photo-input').click()">
                             <img id="reg-photo-preview" class="photo-preview" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80" alt="Прев'ю">
                             <div>
@@ -1206,7 +1206,7 @@
                             </div>
                             <div class="form-group">
                                 <label>Вік</label>
-                                <input type="number" id="reg-age" class="form-input" value="23">
+                                <input type="number" id="reg-age" class="form-input" min="18" max="99" step="1" required placeholder="18+" value="23">
                             </div>
                         </div>
 
@@ -1910,32 +1910,60 @@
         }
 
         // --- АВТОМАТИЧНЕ СТИСНЕННЯ ФОТО ДО 45 КБ ДЛЯ FIREBASE ---
+        let photoProcessing = false;
+        let photoUploadSequence = 0;
         function previewRegPhoto(event) {
-            const file = event.target.files[0];
+            const file = event.target.files && event.target.files[0];
             if (!file) return;
-            document.getElementById('photo-status-text').textContent = "⏳ Оптимізація фото для хмари...";
+            const status = document.getElementById('photo-status-text');
+            const seq = ++photoUploadSequence;
+            const oldPhoto = uploadedPhotoDataUrl;
+            const allowed = ['image/jpeg','image/png','image/webp'];
+            if (!allowed.includes(file.type) || file.size > 8 * 1024 * 1024 || file.size === 0) {
+                event.target.value = '';
+                status.textContent = '❌ Обери JPG, PNG або WebP до 8 МБ.';
+                return;
+            }
+            photoProcessing = true;
+            status.textContent = '⏳ Перевірка та стиснення фото…';
             const reader = new FileReader();
+            const fail = () => {
+                if (seq !== photoUploadSequence) return;
+                photoProcessing = false;
+                uploadedPhotoDataUrl = oldPhoto;
+                status.textContent = '❌ Не вдалося обробити фото. Спробуй інше.';
+                event.target.value = '';
+            };
+            reader.onerror = fail;
             reader.onload = function(e) {
                 const img = new Image();
+                img.onerror = fail;
                 img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    const maxSize = 600;
-                    let w = img.width;
-                    let h = img.height;
-                    if (w > h && w > maxSize) {
-                        h = Math.round((h * maxSize) / w);
-                        w = maxSize;
-                    } else if (h > maxSize) {
-                        w = Math.round((w * maxSize) / h);
-                        h = maxSize;
+                    if (seq !== photoUploadSequence) return;
+                    if (img.width < 100 || img.height < 100 || img.width * img.height > 24000000) {
+                        fail();
+                        status.textContent = '❌ Фото має бути від 100×100 пікселів і не надто великим.';
+                        return;
                     }
-                    canvas.width = w;
-                    canvas.height = h;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, w, h);
-                    uploadedPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.72);
-                    document.getElementById('reg-photo-preview').src = uploadedPhotoDataUrl;
-                    document.getElementById('photo-status-text').textContent = "✅ Фото оптимізовано і готове до збереження!";
+                    try {
+                        const canvas = document.createElement('canvas');
+                        const scale = Math.min(1,600 / Math.max(img.width,img.height));
+                        canvas.width = Math.max(1,Math.round(img.width * scale));
+                        canvas.height = Math.max(1,Math.round(img.height * scale));
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) return fail();
+                        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+                        const encoded = canvas.toDataURL('image/jpeg',0.72);
+                        if (!encoded.startsWith('data:image/jpeg;base64,') || encoded.length > 750000) {
+                            fail();
+                            status.textContent = '❌ Фото після стиснення завелике.';
+                            return;
+                        }
+                        uploadedPhotoDataUrl = encoded;
+                        document.getElementById('reg-photo-preview').src = encoded;
+                        photoProcessing = false;
+                        status.textContent = '✅ Фото перевірено та оптимізовано!';
+                    } catch (_) { fail(); }
                 };
                 img.src = e.target.result;
             };
@@ -2263,7 +2291,13 @@
                 return;
             }
             const name = document.getElementById('reg-name').value.trim() || "Гравець";
-            const age = document.getElementById('reg-age').value.trim() || "22";
+            const age = document.getElementById('reg-age').value.trim();
+            const ageNumber = Number(age);
+            if (!/^\\d{2}$/.test(age) || !Number.isInteger(ageNumber) || ageNumber < 18 || ageNumber > 99) {
+                alert('Реєстрація доступна лише повнолітнім (18+). Вкажи справжній вік від 18 до 99 років.');
+                document.getElementById('reg-age').focus();
+                return;
+            }
             const city = document.getElementById('reg-city').value.trim() || "Україна";
             const question = document.getElementById('reg-prompt-q').value;
             const answer = document.getElementById('reg-prompt-a').value.trim() || "Чекаю на твій хід!";
@@ -2273,8 +2307,12 @@
                 return;
             }
 
-            if (!uploadedPhotoDataUrl) {
-                alert("Додай власне фото перед збереженням анкети.");
+            if (photoProcessing) {
+                alert('Зачекай, поки завершиться обробка фотографії.');
+                return;
+            }
+            if (!uploadedPhotoDataUrl || !/^data:image\\/jpeg;base64,/.test(uploadedPhotoDataUrl)) {
+                alert("Додай власне фото JPG, PNG або WebP перед збереженням анкети.");
                 return;
             }
 
