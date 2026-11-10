@@ -1570,25 +1570,11 @@
             }
         ];
 
+        // Demo cards remain visible only before authenticated Firestore data arrives.
         let profiles = [...defaultProfiles];
-        let reportsData = [
-            {
-                id: "rep-1",
-                name: "Максим, 29 (@max_crypto_bot)",
-                reason: "Спам / Фішинг",
-                text: "Скарга від Аліни: «Кидає посилання на фейкову біржу в системі відповідей»",
-                img: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80"
-            }
-        ];
-        let botsData = [
-            {
-                id: "bot-1",
-                name: "FastMoney_Bot (@earn_fast_tg)",
-                reason: "Агресивний спам (140 хв)",
-                text: "Авто-система заблокувала масову розсилку однотипних повідомлень.",
-                img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80"
-            }
-        ];
+        // Moderation data must come from Firestore, never fabricated demo incidents.
+        let reportsData = [];
+        let botsData = [];
 
         let currentIndex = 0;
         let sentResponses = [];
@@ -1611,7 +1597,9 @@
                 });
                 bannedUsers = cloudBanned;
                 // Коли є достатньо живих анкет (від 5+), показуємо тільки реальних людей
-                profiles = cloudProfiles.length >= 5 ? cloudProfiles : [...cloudProfiles, ...defaultProfiles];
+                // Never mix fictitious dating profiles into a verified live feed.
+                profiles = cloudProfiles;
+                currentIndex = 0;
                 renderCard();
                 renderAdminLists();
             }, err => {
