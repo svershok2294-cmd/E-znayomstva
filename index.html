@@ -2100,7 +2100,7 @@
             }
 
             document.getElementById('debut-hint-msg').style.display = 'none';
-            void nextProfile(true, `Дебютний хід (+10 💎): «${text}»`);
+            void nextProfile(true, `Дебютний хід: «${text}»`);
         }
 
         function attemptSmartMatch() {
@@ -2269,8 +2269,6 @@
                     recordMessageSent(targetId);
                     try {
                         await submitMoveViaServer(targetId, customReply || 'Змістовний хід ♔');
-                        // Reward only a confirmed debut message, never a failed or duplicate tap.
-                        if (typeof customReply === 'string' && customReply.startsWith('Дебютний хід (+10 💎):')) addVaultPoints(10);
                     } catch (e) {
                         lastMessageTimes.set(targetId, previousTime);
                         try {
