@@ -1959,6 +1959,13 @@
             const chosenTags = Array.from(selectedTagEls).map(el => el.textContent);
             if (chosenTags.length === 0) chosenTags.push("♟️ Нова анкета");
 
+            if (name.length > 80 || city.length > 100 || answer.length > 500 ||
+                chosenTags.length > 12 || chosenTags.some(tag => tag.length > 80) ||
+                uploadedPhotoDataUrl.length > 750000) {
+                alert("Анкета завелика. Скороти текст, теги або завантаж менше фото.");
+                return;
+            }
+
             const newProfileData = {
                 id: "#" + String(currentUserId).slice(-4),
                 tgId: String(currentUserId),
