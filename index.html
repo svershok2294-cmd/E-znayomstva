@@ -180,6 +180,7 @@
         }
 
         .admin-badge {
+            border: 0;
             font-size: 10px;
             font-weight: 800;
             color: var(--bg-dark);
@@ -1058,7 +1059,7 @@
             <div class="vault-pill" onclick="openTabDirectly('vip')">🏦 <span id="vault-pts">20</span>💎</div>
             <div class="balance-pill" onclick="openTabDirectly('vip')">⭐️ <span id="user-stars">0</span></div>
             <button class="layout-toggle-btn" id="view-mode-btn" onclick="toggleViewMode()">📱 Моб</button>
-            <div class="admin-badge" id="admin-title" onclick="toggleAdminPreview()">♔ ВЛАД</div>
+            <button type="button" class="admin-badge admin-only-el" id="admin-title" style="display:none" onclick="openAdminPanel()">♔ Адмін</button>
         </div>
     </header>
 
@@ -1505,15 +1506,15 @@
         }
 
         // Admin privileges must come from verified server-side Firebase claims.
-        // Until a trusted admin claim is implemented, disable privileged UI.
+        // Hide privileged controls until Firebase confirms the server-issued claim.
         let isViewingAsAdmin = false;
         document.getElementById('my-tg-id-display').textContent = `TG ID: ${currentUserId}`;
         document.querySelectorAll('.admin-only-el').forEach(el => {
             el.style.display = 'none';
         });
 
-        function toggleAdminPreview() {
-            alert('Адмін-доступ потребує захищеної серверної перевірки.');
+        function openAdminPanel() {
+            if (isViewingAsAdmin) openTabDirectly('admin');
         }
 
         // --- БАЛАНСИ ТА СЕЙФ ---
