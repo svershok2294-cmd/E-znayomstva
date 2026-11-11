@@ -1,0 +1,26 @@
+name: Firestore staging tests
+on:
+  push:
+    branches: [test/firestore-rules-render]
+
+permissions:
+  contents: read
+
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - run: node --check server.js
+      - run: node scripts/test-candidate-swipe.mjs
+      - run: npm run test:rules

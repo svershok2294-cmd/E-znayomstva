@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-e-znayomstva \"node --test scripts/test-firestore-rules.mjs\""
+    "test:rules": "firebase emulators:exec --only firestore --project demo-e-znayomstva \"node --test --test-concurrency=1 scripts/test-firestore-rules.mjs scripts/test-message-concurrency.mjs\""
   },
   "engines": {
     "node": ">=20"
