@@ -16,7 +16,7 @@ const ALLOWED_ORIGINS = new Set([
     ? [process.env.APP_ORIGIN] : [])
 ]);
 const MAX_AGE_SECONDS = 300;
-const ADMIN_TELEGRAM_ID = /^\\d+$/.test(process.env.ADMIN_TELEGRAM_ID || '')
+const ADMIN_TELEGRAM_ID = /^\d+$/.test(process.env.ADMIN_TELEGRAM_ID || '')
   ? process.env.ADMIN_TELEGRAM_ID
   : '';
 
@@ -152,8 +152,13 @@ const server = http.createServer((req, res) => {
     let raw = '';
     req.on('data', chunk => { raw += chunk; if (raw.length > 8192) req.destroy(); });
     req.on('end', async () => {
+      let body;
       try {
-        const body = JSON.parse(raw);
+        body = JSON.parse(raw);
+      } catch {
+        return send(res, 400, { error: 'Invalid body' }, corsOrigin);
+      }
+      try {
         if (!body || typeof body !== 'object' || Array.isArray(body)) return send(res, 400, { error: 'Invalid body' }, corsOrigin);
         const result = await createRateLimitedMove(body, authorization.slice(7));
         return send(res, result.status, result.body, corsOrigin);
