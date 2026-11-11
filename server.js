@@ -171,7 +171,12 @@ const server = http.createServer((req, res) => {
     req.on('data', chunk => { raw += chunk; if (raw.length > 8192) req.destroy(); });
     req.on('end', async () => {
       try {
-        const body = JSON.parse(raw);
+        let body;
+        try {
+          body = JSON.parse(raw);
+        } catch {
+          return send(res, 400, { error: 'Invalid body' }, corsOrigin);
+        }
         if (!body || typeof body !== 'object' || Array.isArray(body)) return send(res, 400, { error: 'Invalid body' }, corsOrigin);
         const result = await createRateLimitedMove(body, authorization.slice(7));
         return send(res, result.status, result.body, corsOrigin);
