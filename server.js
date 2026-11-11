@@ -158,7 +158,7 @@ const server = http.createServer((req, res) => {
     });
   }
   if (pathOnly === '/health' && req.method === 'GET') return send(res, 200, { ok: true, configured: Boolean(BOT_TOKEN), firebaseReady });
-  if (req.url === '/api/moves' && process.env.ENABLE_TEST_SERVER_MOVES === 'true') {
+  if (pathOnly === '/api/moves' && process.env.ENABLE_TEST_SERVER_MOVES === 'true') {
     if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
     if (req.method === 'OPTIONS') {
       res.writeHead(204, { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Vary': 'Origin' });
