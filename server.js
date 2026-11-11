@@ -135,6 +135,13 @@ async function createRateLimitedMove(body, idToken) {
 }
 
 const server = http.createServer((req, res) => {
+  // Test-only request trace: never log query strings, headers, tokens or user content.
+  // Unknown paths are hashed rather than printed to avoid exposing identifiers.
+  const pathOnly = String(req.url || '').split('?')[0];
+  const safeRoute = ['/health', '/__diagnostic', '/auth/telegram', '/api/moves'].includes(pathOnly)
+    ? pathOnly
+    : 'other:' + crypto.createHash('sha256').update(pathOnly).digest('hex').slice(0, 10);
+  console.log('HTTP route trace:', req.method, safeRoute);
   const origin = req.headers.origin || '';
   const corsOrigin = ALLOWED_ORIGINS.has(origin) ? origin : '';
   // Test-only, read-only diagnostics. Never include credentials, tokens or user data.
