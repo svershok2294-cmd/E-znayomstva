@@ -141,6 +141,25 @@ async function createRateLimitedMove(body, idToken) {
   return result;
 }
 
+async function deleteOwnProfile(idToken) {
+  if (!firebaseReady) return { status: 503, body: { error: 'Firebase unavailable' } };
+  const decoded = await getAuth().verifyIdToken(idToken, true);
+  const identity = /^telegram:([1-9][0-9]{0,15})$/.exec(decoded.uid);
+  if (!identity || decoded.firebase?.sign_in_provider !== 'custom') {
+    return { status: 401, body: { error: 'Invalid account' } };
+  }
+  const firestore = getFirestore();
+  const profile = firestore.collection('ez_users').doc(identity[1]);
+  return firestore.runTransaction(async tx => {
+    const snapshot = await tx.get(profile);
+    if (snapshot.exists && snapshot.data().isBanned) {
+      return { status: 403, body: { error: 'Profile under moderation' } };
+    }
+    if (snapshot.exists) tx.delete(profile);
+    return { status: 200, body: { ok: true } };
+  });
+}
+
 const server = http.createServer((req, res) => {
   const origin = req.headers.origin || '';
   const corsOrigin = ALLOWED_ORIGINS.has(origin) ? origin : '';
@@ -174,6 +193,27 @@ const server = http.createServer((req, res) => {
       }
     });
     return;
+  }
+  if (req.url === '/api/profile') {
+    if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': corsOrigin,
+        'Access-Control-Allow-Methods': 'DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Authorization',
+        'Vary': 'Origin'
+      });
+      return res.end();
+    }
+    if (req.method !== 'DELETE') return send(res, 405, { error: 'Method not allowed' }, corsOrigin);
+    const authorization = String(req.headers.authorization || '');
+    if (!/^Bearer [A-Za-z0-9._-]+$/.test(authorization)) return send(res, 401, { error: 'Missing token' }, corsOrigin);
+    return deleteOwnProfile(authorization.slice(7)).then(result => send(res, result.status, result.body, corsOrigin))
+      .catch(error => {
+        if (error.code?.startsWith?.('auth/')) return send(res, 401, { error: 'Invalid authentication' }, corsOrigin);
+        console.error('Profile deletion failed:', error.code || 'unknown');
+        return send(res, 500, { error: 'Profile unavailable' }, corsOrigin);
+      });
   }
   if (req.url !== '/auth/telegram') return send(res, 404, { error: 'Not found' });
   if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });

@@ -1110,6 +1110,8 @@
                         </div>
 
                         <button class="primary-btn" id="reg-submit-btn" onclick="submitRegistration()">♞ Зберегти анкету в Firebase</button>
+                        <button type="button" class="btn-sm btn-ignore-bw" id="reg-delete-btn" onclick="deleteMyProfile()" hidden>Видалити анкету</button>
+                        <p id="reg-delete-status" role="status"></p>
                     </div>
                 </div>
             </div>
@@ -2023,6 +2025,7 @@
                 const uid = String(verifiedTelegramUser.id);
                 if (firebase.auth().currentUser.uid !== 'telegram:' + uid) return;
                 const snap = await db.collection('ez_users').doc(uid).get();
+                document.getElementById('reg-delete-btn').hidden = !snap.exists;
                 if (!snap.exists) {
                     btn.textContent = "♞ Зберегти анкету в Firebase";
                     return;
@@ -2147,6 +2150,8 @@
                 currentIndex = 0;
                 renderCard();
                 btn.textContent = "♞ Оновити анкету";
+                document.getElementById('reg-delete-btn').hidden = false;
+                document.getElementById('reg-delete-status').textContent = '';
                 openTabDirectly('swipe');
             } catch (error) {
                 console.warn("Firestore registration error:", error.code || error.message);
@@ -2155,6 +2160,47 @@
                 registrationSaving = false;
                 btn.disabled = false;
                 if (btn.textContent.startsWith("⏳")) btn.textContent = "♞ Зберегти анкету";
+            }
+        }
+
+        async function deleteMyProfile() {
+            const user = firebase.auth().currentUser;
+            const remove = document.getElementById('reg-delete-btn');
+            if (!isFirebaseConnected || !user || registrationSaving || remove.hidden) return;
+            if (!confirm('Видалити анкету зі стрічки? Попередні повідомлення й дані, збережені разом із ними, залишаться в історії.')) return;
+            const save = document.getElementById('reg-submit-btn');
+            const status = document.getElementById('reg-delete-status');
+            registrationSaving = true;
+            remove.disabled = true;
+            save.disabled = true;
+            status.textContent = 'Видаляємо анкету…';
+            try {
+                const token = await user.getIdToken();
+                const response = await fetch('https://e-znayomstva-auth.onrender.com/api/profile', {
+                    method: 'DELETE', headers: { Authorization: 'Bearer ' + token }
+                });
+                if (response.status === 403) {
+                    status.textContent = 'Анкета заблокована модератором. Для видалення звернися в підтримку.';
+                    return;
+                }
+                if (!response.ok) throw new Error('Profile deletion failed');
+                remove.hidden = true;
+                save.textContent = '♞ Зберегти анкету';
+                uploadedPhotoDataUrl = '';
+                document.getElementById('reg-photo-input').value = '';
+                document.getElementById('reg-photo-preview').removeAttribute('src');
+                document.getElementById('photo-status-text').textContent = 'Завантаж фото для нової анкети';
+                document.getElementById('reg-name').value = currentUserName;
+                for (const id of ['reg-age', 'reg-city', 'reg-prompt-a']) document.getElementById(id).value = '';
+                document.getElementById('reg-prompt-q').selectedIndex = 0;
+                document.querySelectorAll('#reg-tags-box .tag-choice.selected').forEach(el => el.classList.remove('selected'));
+                status.textContent = 'Анкету видалено.';
+            } catch {
+                status.textContent = 'Не вдалося видалити анкету. Спробуй ще раз.';
+            } finally {
+                registrationSaving = false;
+                remove.disabled = false;
+                save.disabled = false;
             }
         }
 
