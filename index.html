@@ -1742,6 +1742,8 @@
         let conversationProfiles = new Map();
         let conversationSeen = {};
         const conversationDrafts = new Map();
+        const conversationSends = new Map();
+        let activeComposer = null;
         const remoteReadReceipts = new Map();
         const readReceiptSubscriptions = new Map();
         const readReceiptWrites = new Map();
@@ -1901,32 +1903,82 @@
             if (!response.ok || !result.ok) throw new Error(response.status === 403 ? 'Листування заблоковано.' : 'Сервер не зміг надіслати повідомлення (' + response.status + ').');
             return result;
         }
-        async function sendReplyToMove(senderId, message, button) {
-            const text = String(message || '').trim();
-            if (!text || text.length > 1000) { alert('Напиши відповідь до 1000 символів.'); return false; }
-            if (!verifiedTelegramUser || !isFirebaseConnected || !db) { alert('Спочатку підтвердь вхід через Telegram.'); return false; }
-            if (!/^\d+$/.test(String(senderId)) || String(senderId) === String(verifiedTelegramUser.id)) return false;
-            if (warnMessageCooldown(senderId)) return false;
-            // Reserve the cooldown before awaiting Firestore so rapid taps or rerenders cannot bypass it.
-            const cooldownKey = String(senderId);
-            const previousTime = lastMessageTimes.get(cooldownKey) || 0;
-            recordMessageSent(senderId);
-            button.disabled = true;
+        async function sendReplyToMove(otherId, text) {
+            if (text.length > 1000) throw new Error('Напиши відповідь до 1000 символів.');
+            if (!verifiedTelegramUser || !isFirebaseConnected || !db) throw new Error('Спочатку підтвердь вхід через Telegram.');
+            if (!/^\d+$/.test(otherId) || otherId === String(verifiedTelegramUser.id)) throw new Error('Не вдалося визначити одержувача.');
+            const remaining = messageCooldownRemaining(otherId);
+            if (remaining) throw new Error('Зачекай ' + Math.ceil(remaining / 1000) + ' с перед наступним повідомленням.');
+
+            const previousTime = lastMessageTimes.get(otherId);
+            recordMessageSent(otherId);
             try {
-                await submitMoveViaServer(senderId, text);
-                return true;
-            } catch (e) {
-                // Failed sends must not consume the waiting period.
-                lastMessageTimes.set(cooldownKey, previousTime);
+                await submitMoveViaServer(otherId, text);
+            } catch (error) {
+                if (previousTime) lastMessageTimes.set(otherId, previousTime);
+                else lastMessageTimes.delete(otherId);
                 try {
-                    const key = 'ez_last_message_' + String(verifiedTelegramUser?.id || '') + '_' + cooldownKey;
+                    const key = 'ez_last_message_' + String(verifiedTelegramUser.id) + '_' + otherId;
                     if (previousTime) localStorage.setItem(key, String(previousTime));
                     else localStorage.removeItem(key);
                 } catch (_) {}
-                alert('Не вдалося надіслати відповідь: ' + (e.message || 'Помилка Firebase'));
-                return false;
+                throw error;
             }
-            finally { button.disabled = false; }
+        }
+
+        function createConversationComposer(otherId) {
+            const compose = document.createElement('div');
+            compose.className = 'conversation-compose';
+            const input = document.createElement('input');
+            input.placeholder = 'Напиши повідомлення…';
+            input.maxLength = 1000;
+            input.setAttribute('aria-label', 'Нове повідомлення');
+            const send = document.createElement('button');
+            send.type = 'button';
+            const status = document.createElement('div');
+            status.className = 'conversation-send-status';
+            status.setAttribute('role', 'status');
+
+            function refresh() {
+                const draft = conversationDrafts.get(otherId) || '';
+                if (input.value !== draft) input.value = draft;
+                const state = conversationSends.get(otherId);
+                send.disabled = state?.phase === 'sending';
+                send.textContent = send.disabled ? 'Надсилається…' : state?.phase === 'failed' ? 'Повторити' : '♞ Надіслати';
+                status.textContent = state?.message || '';
+            }
+
+            function refreshActive() {
+                if (activeComposer?.otherId === otherId) activeComposer.refresh();
+            }
+
+            async function submit() {
+                if (conversationSends.get(otherId)?.phase === 'sending') return;
+                const draft = input.value;
+                const text = draft.trim();
+                if (!text) { input.focus(); return; }
+                conversationDrafts.set(otherId, draft);
+                conversationSends.set(otherId, { phase: 'sending', message: 'Надсилаємо повідомлення…' });
+                refreshActive();
+                try {
+                    await sendReplyToMove(otherId, text);
+                    if (conversationDrafts.get(otherId) === draft) conversationDrafts.delete(otherId);
+                    conversationSends.set(otherId, { phase: 'sent', message: '✓ Надіслано' });
+                } catch (error) {
+                    conversationSends.set(otherId, { phase: 'failed', message: error.message || 'Не вдалося надіслати повідомлення.' });
+                }
+                refreshActive();
+            }
+
+            input.addEventListener('input', () => conversationDrafts.set(otherId, input.value));
+            send.addEventListener('click', submit);
+            input.addEventListener('keydown', event => {
+                if (event.key === 'Enter' && !event.isComposing) submit();
+            });
+            compose.append(input, send);
+            activeComposer = { otherId, refresh };
+            refresh();
+            return { compose, status };
         }
         let bannedUsers = [];
 
@@ -2476,8 +2528,7 @@
             const thread = document.getElementById('conversation-thread');
             const oldBody = thread.querySelector('.conversation-messages');
             const oldScroll = oldBody ? {top:oldBody.scrollTop, bottom:oldBody.scrollHeight - oldBody.clientHeight - oldBody.scrollTop} : null;
-            const oldInput = thread.querySelector('.conversation-compose input');
-            if (oldInput && activeConversationId) conversationDrafts.set(activeConversationId,oldInput.value);
+            activeComposer = null;
             list.replaceChildren(); thread.replaceChildren();
             const ordered = [...threads.entries()].filter(([id]) => !personalBlockedIds.has(id)).sort((a,b) => (b[1].at(-1)?.createdAt || 0) - (a[1].at(-1)?.createdAt || 0));
             if (activeConversationId && (!threads.has(activeConversationId) || personalBlockedIds.has(activeConversationId))) activeConversationId = null;
@@ -2624,48 +2675,7 @@
                 }
                 body.appendChild(bubble);
             });
-            const compose = document.createElement('div'); compose.className = 'conversation-compose';
-            const input = document.createElement('input'); input.placeholder = 'Напиши повідомлення…'; input.maxLength = 1000;
-            input.value = conversationDrafts.get(otherId) || '';
-            input.addEventListener('input', () => conversationDrafts.set(otherId, input.value));
-            input.setAttribute('aria-label','Нове повідомлення');
-            const send = document.createElement('button'); send.textContent = '♞ Надіслати';
-            const status = document.createElement('div'); status.className = 'conversation-send-status';
-            status.setAttribute('role','status'); status.setAttribute('aria-live','polite');
-            let submitting = false;
-            const submit = async () => {
-                if (submitting) return;
-                const draft = input.value.trim();
-                if (!draft) { input.focus(); return; }
-                submitting = true;
-                send.disabled = true;
-                send.textContent = '⏳';
-                status.textContent = 'Надсилаємо повідомлення…';
-                if (messageCooldownRemaining(otherId)) {
-                    const seconds = Math.ceil(messageCooldownRemaining(otherId) / 1000);
-                    status.textContent = '⏳ Зачекай ' + seconds + ' с перед наступним повідомленням.';
-                    submitting = false;
-                    send.disabled = false;
-                    send.textContent = '♞ Надіслати';
-                    return;
-                }
-                const success = await sendReplyToMove(otherId,draft,send);
-                if (success) {
-                    if (conversationDrafts.get(otherId) === input.value) {
-                        conversationDrafts.delete(otherId);
-                        input.value = '';
-                    }
-                    status.textContent = '✓ Надіслано';
-                } else {
-                    status.textContent = 'Не вдалося надіслати. Спробуй ще раз.';
-                }
-                submitting = false;
-                send.disabled = false;
-                send.textContent = '♞ Надіслати';
-            };
-            send.addEventListener('click',submit);
-            input.addEventListener('keydown',e => { if (e.key === 'Enter' && !e.isComposing) submit(); });
-            compose.append(input,send);
+            const { compose, status } = createConversationComposer(otherId);
             thread.append(header,body,compose,status);
             requestAnimationFrame(() => {
                 if (!body.isConnected) return;
