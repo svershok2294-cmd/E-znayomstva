@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
+import { createVipPayments } from './vip-payments.js';
 
 const PORT = Number(process.env.PORT || 10000);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -160,6 +161,21 @@ async function deleteOwnProfile(idToken) {
   });
 }
 
+const vipWebhookSecret = process.env.TELEGRAM_STARS_WEBHOOK_SECRET || '';
+const vipEnabled = process.env.ENABLE_TELEGRAM_STARS === 'true' &&
+  /^[A-Za-z0-9_-]{32,256}$/.test(vipWebhookSecret) && BOT_TOKEN && firebaseReady;
+const vipPayments = vipEnabled && createVipPayments(getFirestore(), async (method, data) => {
+  const response = await fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/' + method, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+    signal: AbortSignal.timeout(5000)
+  });
+  const result = await response.json();
+  if (!response.ok || result.ok !== true) throw new Error('Telegram payment request failed');
+  return result.result;
+});
+
 const server = http.createServer((req, res) => {
   const origin = req.headers.origin || '';
   const corsOrigin = ALLOWED_ORIGINS.has(origin) ? origin : '';
@@ -190,6 +206,46 @@ const server = http.createServer((req, res) => {
         if (error.code?.startsWith?.('auth/')) return send(res, 401, { error: 'Invalid authentication' }, corsOrigin);
         console.error('Move endpoint:', error.code || error.message);
         return send(res, 500, { error: 'Message unavailable' }, corsOrigin);
+      }
+    });
+    return;
+  }
+  if (vipPayments && req.url === '/api/vip/checkout') {
+    if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization', 'Vary': 'Origin' });
+      return res.end();
+    }
+    if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' }, corsOrigin);
+    const authorization = /^Bearer ([A-Za-z0-9._-]+)$/.exec(String(req.headers.authorization || ''));
+    if (!authorization) return send(res, 401, { error: 'Missing token' }, corsOrigin);
+    return getAuth().verifyIdToken(authorization[1], true).then(async decoded => {
+      const buyer = /^telegram:([1-9][0-9]{0,15})$/.exec(decoded.uid);
+      if (!buyer || decoded.firebase?.sign_in_provider !== 'custom') return send(res, 401, { error: 'Invalid account' }, corsOrigin);
+      const invoiceUrl = await vipPayments.createInvoice(buyer[1]);
+      if (!invoiceUrl) return send(res, 403, { error: 'Active profile required' }, corsOrigin);
+      return send(res, 200, { invoiceUrl }, corsOrigin);
+    }).catch(error => {
+      if (error.code?.startsWith?.('auth/')) return send(res, 401, { error: 'Invalid authentication' }, corsOrigin);
+      return send(res, 502, { error: 'Checkout unavailable' }, corsOrigin);
+    });
+  }
+  if (vipPayments && req.url === '/telegram/stars') {
+    if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
+    const received = Buffer.from(String(req.headers['x-telegram-bot-api-secret-token'] || ''));
+    const expected = Buffer.from(vipWebhookSecret);
+    if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) {
+      return send(res, 403, { error: 'Invalid webhook' });
+    }
+    let raw = '';
+    req.on('data', chunk => { raw += chunk; if (raw.length > 32768) req.destroy(); });
+    req.on('end', async () => {
+      try {
+        await vipPayments.handleUpdate(JSON.parse(raw));
+        send(res, 200, { ok: true });
+      } catch {
+        console.error('VIP webhook processing failed');
+        send(res, 500, { error: 'Payment processing unavailable' });
       }
     });
     return;
