@@ -210,18 +210,20 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
-  if (vipPayments && req.url === '/api/vip/checkout') {
+  if (vipPayments && (req.url === '/api/vip' || req.url === '/api/vip/checkout')) {
+    const checkout = req.url === '/api/vip/checkout';
     if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
     if (req.method === 'OPTIONS') {
-      res.writeHead(204, { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization', 'Vary': 'Origin' });
+      res.writeHead(204, { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization', 'Vary': 'Origin' });
       return res.end();
     }
-    if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' }, corsOrigin);
+    if (req.method !== (checkout ? 'POST' : 'GET')) return send(res, 405, { error: 'Method not allowed' }, corsOrigin);
     const authorization = /^Bearer ([A-Za-z0-9._-]+)$/.exec(String(req.headers.authorization || ''));
     if (!authorization) return send(res, 401, { error: 'Missing token' }, corsOrigin);
     return getAuth().verifyIdToken(authorization[1], true).then(async decoded => {
       const buyer = /^telegram:([1-9][0-9]{0,15})$/.exec(decoded.uid);
       if (!buyer || decoded.firebase?.sign_in_provider !== 'custom') return send(res, 401, { error: 'Invalid account' }, corsOrigin);
+      if (!checkout) return send(res, 200, await vipPayments.getStatus(buyer[1]), corsOrigin);
       const invoiceUrl = await vipPayments.createInvoice(buyer[1]);
       if (!invoiceUrl) return send(res, 403, { error: 'Active profile required' }, corsOrigin);
       return send(res, 200, { invoiceUrl }, corsOrigin);

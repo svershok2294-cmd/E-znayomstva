@@ -8,9 +8,9 @@ test('VIP requires verified payment and records a charge exactly once', async ()
     ['ez_users/202', { name: 'Fixture' }],
     ['ez_users/303', { isBanned: true }]
   ]);
-  const snapshot = ref => ({ exists: docs.has(ref.path), data: () => docs.get(ref.path) });
+  const snapshot = ref => ({ id: ref.id, ref, exists: docs.has(ref.path), data: () => docs.get(ref.path) });
   const db = {
-    collection: name => ({ doc: id => ({
+    collection: name => ({ where: (field, _operator, value) => ({ name, field, value }), doc: id => ({
       id,
       path: name + '/' + id,
       async get() { return snapshot(this); },
@@ -20,6 +20,10 @@ test('VIP requires verified payment and records a charge exactly once', async ()
       const writes = [];
       const tx = {
         getAll: async (...refs) => refs.map(snapshot),
+        get: async ref => ref.field ? {
+          docs: [...docs.keys()].filter(path => path.startsWith(ref.name + '/') &&
+            docs.get(path)[ref.field] === ref.value).map(path => snapshot({ id: path.split('/').at(-1), path }))
+        } : snapshot(ref),
         create: (ref, value) => writes.push(() => { assert.ok(!docs.has(ref.path)); docs.set(ref.path, value); }),
         update: (ref, value) => writes.push(() => { assert.ok(docs.has(ref.path)); docs.set(ref.path, { ...docs.get(ref.path), ...value }); }),
         set: (ref, value) => writes.push(() => docs.set(ref.path, value))
@@ -61,6 +65,25 @@ test('VIP requires verified payment and records a charge exactly once', async ()
   await vip.handleUpdate(receipt);
   assert.equal(docs.get('ez_vip_entitlements/101').vipUntil, expiry);
   assert.equal([...docs.keys()].filter(key => key.startsWith('ez_vip_charges/')).length, 1);
+  assert.deepEqual(await vip.getStatus('101'), { vipUntil: expiry, canBuy: true });
+  assert.deepEqual(await vip.getStatus('303'), { vipUntil: 0, canBuy: false });
+
+  const duration = 30 * 24 * 60 * 60 * 1000;
+  await vip.createInvoice('101');
+  const second = { ...query, id: 'checkout-2', invoice_payload: calls.at(-1).args.payload };
+  await vip.handleUpdate({ pre_checkout_query: second });
+  await vip.handleUpdate({ message: { from: { id: 101 }, successful_payment: { ...second, telegram_payment_charge_id: 'charge-2' } } });
+  assert.equal((await vip.getStatus('101')).vipUntil, expiry + duration);
+  const refund = { message: { refunded_payment: receipt.message.successful_payment } };
+  await vip.handleUpdate(refund);
+  assert.equal((await vip.getStatus('101')).vipUntil, time + duration);
+  assert.equal(docs.get('ez_users/101').vipUntil, time + duration);
+  await vip.handleUpdate(refund);
+  await vip.handleUpdate(receipt);
+  assert.equal((await vip.getStatus('101')).vipUntil, time + duration);
+  await vip.handleUpdate({ message: { refunded_payment: { ...second, telegram_payment_charge_id: 'charge-2' } } });
+  assert.equal((await vip.getStatus('101')).vipUntil, 0);
+  assert.equal(docs.get('ez_users/101').vipUntil, 0);
 
   await vip.createInvoice('101');
   const expired = calls.at(-1).args.payload;

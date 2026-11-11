@@ -83,11 +83,43 @@ export function createVipPayments(db, telegram, now = Date.now) {
     });
   }
 
+  async function refundPayment(payment) {
+    const chargeId = payment.telegram_payment_charge_id;
+    if (typeof chargeId !== 'string' || !chargeId || chargeId.length > 256 || chargeId.includes('/') ||
+        !orderId(payment.invoice_payload) || payment.currency !== 'XTR' || payment.total_amount !== price) return;
+    const chargeRef = charges.doc(chargeId);
+    await db.runTransaction(async tx => {
+      const snapshot = await tx.get(chargeRef);
+      if (!snapshot.exists) throw new Error('VIP refund arrived before charge');
+      const charge = snapshot.data();
+      if (charge.orderId !== payment.invoice_payload) throw new Error('VIP refund conflict');
+      if (charge.refundedAt) return;
+      const [history, profile] = await Promise.all([
+        tx.get(charges.where('buyer', '==', charge.buyer)),
+        tx.get(users.doc(charge.buyer))
+      ]);
+      const vipUntil = history.docs
+        .filter(doc => doc.id !== chargeId && !doc.data().refundedAt)
+        .map(doc => doc.data().paidAt)
+        .sort((a, b) => a - b)
+        .reduce((expiry, paidAt) => Math.max(expiry, paidAt) + duration, 0);
+      tx.update(chargeRef, { refundedAt: now() });
+      tx.update(orders.doc(charge.orderId), { status: 'refunded' });
+      tx.set(entitlements.doc(charge.buyer), { vipUntil });
+      if (profile.exists) tx.update(profile.ref, { vipUntil });
+    });
+  }
+
   return {
     createInvoice,
+    async getStatus(buyer) {
+      const [entitlement, profile] = await Promise.all([entitlements.doc(buyer).get(), users.doc(buyer).get()]);
+      return { vipUntil: entitlement.data()?.vipUntil || 0, canBuy: available(profile) };
+    },
     async handleUpdate(update) {
       if (update.pre_checkout_query) await preCheckout(update.pre_checkout_query);
       else if (update.message?.successful_payment) await successfulPayment(update.message);
+      else if (update.message?.refunded_payment) await refundPayment(update.message.refunded_payment);
     }
   };
 }
