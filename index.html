@@ -1201,6 +1201,9 @@
         const tg = window.Telegram?.WebApp;
         tg?.expand();
 
+        const appApiOrigin = 'https://e-znayomstva-auth.onrender.com';
+        const appBotUrl = 'https://t.me/e_znayomstva_bot';
+
         // Public Firebase Web configuration for the nazviazku project.
         const firebaseConfig = {
             apiKey: "AIzaSyC5Ox_25cWYi12M3dMlCpCXKfT-oZub8ts",
@@ -1230,7 +1233,7 @@
             try {
                 if (!tg?.initData) {
                     const link = document.createElement('a');
-                    link.href = 'https://t.me/e_znayomstva_bot';
+                    link.href = appBotUrl;
                     link.textContent = 'Відкрити в Telegram';
                     if (diagnostic) diagnostic.replaceChildren(link);
                     return;
@@ -1238,7 +1241,7 @@
                 if (!db) throw new Error('FIREBASE_SDK');
                 stage = 'server';
                 showStage('Вхід: перевірка сервера…');
-                const response = await fetch('https://e-znayomstva-auth.onrender.com/auth/telegram', {
+                const response = await fetch(appApiOrigin + '/auth/telegram', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ initData: tg.initData })
@@ -1580,7 +1583,7 @@
             const currentUser = firebase.auth().currentUser;
             if (!currentUser || !verifiedTelegramUser) throw new Error('Спочатку підтвердь вхід через Telegram.');
             const token = await currentUser.getIdToken();
-            const response = await fetch('https://e-znayomstva-auth.onrender.com/api/moves', {
+            const response = await fetch(appApiOrigin + '/api/moves', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
                 body: JSON.stringify({ targetUserId: String(targetUserId), myReply: String(myReply) })
@@ -2191,7 +2194,7 @@
             const user = firebase.auth().currentUser;
             if (!isFirebaseConnected || !user) return null;
             const token = await user.getIdToken();
-            const response = await fetch('https://e-znayomstva-auth.onrender.com/api' + path, {
+            const response = await fetch(appApiOrigin + '/api' + path, {
                 method, headers: { Authorization: 'Bearer ' + token, ...(body ? { 'Content-Type': 'application/json' } : {}) },
                 body: body ? JSON.stringify(body) : undefined
             });
@@ -2338,7 +2341,7 @@
             status.textContent = 'Видаляємо анкету…';
             try {
                 const token = await user.getIdToken();
-                const response = await fetch('https://e-znayomstva-auth.onrender.com/api/profile', {
+                const response = await fetch(appApiOrigin + '/api/profile', {
                     method: 'DELETE', headers: { Authorization: 'Bearer ' + token }
                 });
                 if (response.status === 403) {

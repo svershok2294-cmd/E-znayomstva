@@ -6,13 +6,16 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { createVipPayments } from './vip-payments.js';
 import { createGiftPayments, isGiftOrder } from './gift-payments.js';
+import { loadTelegramSandbox } from './telegram-sandbox.js';
 
 const PORT = Number(process.env.PORT || 10000);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const sandbox = loadTelegramSandbox(process.env);
+const botApi = 'https://api.telegram.org/bot' + BOT_TOKEN + (sandbox ? '/test/' : '/');
 // Browser Origin for GitHub Pages contains only scheme + host (no repo path).
 // Candidate production service accepts only the production web origin by default.
 // APP_ORIGIN is optional and must be an exact, trusted HTTPS origin.
-const ALLOWED_ORIGINS = new Set([
+const ALLOWED_ORIGINS = new Set(sandbox ? [sandbox.origin] : [
   'https://svershok2294-cmd.github.io',
   ...(process.env.APP_ORIGIN && /^https:\/\/[a-z0-9.-]+(?::[0-9]+)?$/i.test(process.env.APP_ORIGIN)
     ? [process.env.APP_ORIGIN] : [])
@@ -52,7 +55,7 @@ let firebaseReady = false;
 try {
   const credentialJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || fs.readFileSync('/etc/secrets/firebase-service-account.json', 'utf8');
   const key = parseServiceAccount(credentialJson);
-  if (key.project_id !== 'nazviazku') throw new Error('Unexpected Firebase project');
+  if (key.project_id !== (sandbox?.projectId || 'nazviazku')) throw new Error('Unexpected Firebase project');
   initializeApp({ credential: cert(key) });
   firebaseReady = true;
 } catch (error) {
@@ -164,9 +167,10 @@ async function deleteOwnProfile(idToken) {
 
 const vipWebhookSecret = process.env.TELEGRAM_STARS_WEBHOOK_SECRET || '';
 const vipEnabled = process.env.ENABLE_TELEGRAM_STARS === 'true' &&
+  (sandbox || process.env.ENABLE_LIVE_TELEGRAM_STARS === 'true') &&
   /^[A-Za-z0-9_-]{32,256}$/.test(vipWebhookSecret) && BOT_TOKEN && firebaseReady;
 async function telegramPayment(method, data) {
-  const response = await fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/' + method, {
+  const response = await fetch(botApi + method, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -178,11 +182,19 @@ async function telegramPayment(method, data) {
 }
 const vipPayments = vipEnabled && createVipPayments(getFirestore(), telegramPayment);
 const giftPayments = vipEnabled && createGiftPayments(getFirestore(), telegramPayment);
+let testWebhookReady = false;
 
 const server = http.createServer((req, res) => {
   const origin = req.headers.origin || '';
   const corsOrigin = ALLOWED_ORIGINS.has(origin) ? origin : '';
-  if (req.url === '/health' && req.method === 'GET') return send(res, 200, { ok: true, configured: Boolean(BOT_TOKEN), firebaseReady });
+  if (sandbox && req.method === 'GET' && req.url.split('?')[0] === '/') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+    return res.end(sandbox.page);
+  }
+  if (req.url === '/health' && req.method === 'GET') {
+    return send(res, 200, { ok: true, configured: Boolean(BOT_TOKEN), firebaseReady,
+      ...(sandbox ? { telegramTestMode: true, starsEnabled: Boolean(vipEnabled), testWebhookReady } : {}) });
+  }
   if (req.url === '/api/moves' && process.env.ENABLE_SERVER_MOVES === 'true') {
     if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
     if (req.method === 'OPTIONS') {
@@ -216,6 +228,9 @@ const server = http.createServer((req, res) => {
   const giftStatusId = req.url.startsWith('/api/gifts/') ? req.url.slice('/api/gifts/'.length) : '';
   const giftRoute = req.url === '/api/gifts' || req.url === '/api/gifts/checkout' || isGiftOrder(giftStatusId);
   if (vipPayments && (giftRoute || req.url === '/api/vip' || req.url === '/api/vip/checkout')) {
+    if (sandbox && process.env.REGISTER_TEST_STARS_WEBHOOK === 'true' && !testWebhookReady) {
+      return send(res, 503, { error: 'Test Stars webhook unavailable' }, corsOrigin);
+    }
     const checkout = req.url === '/api/vip/checkout' || req.url === '/api/gifts/checkout';
     if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
     if (req.method === 'OPTIONS') {
@@ -328,9 +343,27 @@ server.listen(PORT, '0.0.0.0', () => console.log('Telegram auth server listening
 // Diagnostic: identify the configured bot without exposing its token.
 // The request is sent only to Telegram's official API; logs contain username only.
 if (BOT_TOKEN) {
-  fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/getMe', { signal: AbortSignal.timeout(8000) })
+  fetch(botApi + 'getMe', { signal: AbortSignal.timeout(8000) })
     .then(response => response.json())
-    .then(result => console.log('Configured Telegram bot:', result.ok && result.result?.username ? '@' + result.result.username : 'TOKEN_REJECTED'))
+    .then(async result => {
+      console.log('Configured Telegram bot:', result.ok && result.result?.username ? '@' + result.result.username : 'TOKEN_REJECTED');
+      if (!sandbox || !vipEnabled || process.env.REGISTER_TEST_STARS_WEBHOOK !== 'true') return;
+      if (result.result?.username?.toLowerCase() !== process.env.TELEGRAM_TEST_BOT_USERNAME.toLowerCase()) {
+        console.warn('Test Stars webhook skipped: bot username mismatch');
+        return;
+      }
+      try {
+        await telegramPayment('setWebhook', {
+          url: sandbox.origin + '/telegram/stars',
+          secret_token: vipWebhookSecret,
+          allowed_updates: ['pre_checkout_query', 'message']
+        });
+        testWebhookReady = true;
+        console.log('Test Stars webhook registered');
+      } catch {
+        console.warn('Test Stars webhook registration failed');
+      }
+    })
     .catch(() => console.warn('Configured Telegram bot: LOOKUP_UNAVAILABLE'));
 }
 
@@ -338,7 +371,7 @@ if (BOT_TOKEN) {
 // Production notification candidate. Disabled by default; must be reviewed and explicitly enabled.
 // This sends only a generic notification (no message text or sender identity).
 // Telegram user must have started the configured production bot to receive it.
-if (process.env.ENABLE_PRODUCTION_MOVE_NOTIFICATIONS === 'true' && firebaseReady && BOT_TOKEN) {
+if (!sandbox && process.env.ENABLE_PRODUCTION_MOVE_NOTIFICATIONS === 'true' && firebaseReady && BOT_TOKEN) {
   const firestore = getFirestore();
   const receipts = firestore.collection('ez_production_notification_receipts');
   const seen = new Set();
@@ -360,7 +393,7 @@ if (process.env.ENABLE_PRODUCTION_MOVE_NOTIFICATIONS === 'true' && firebaseReady
       return;
     }
     try {
-      const response = await fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage', {
+      const response = await fetch(botApi + 'sendMessage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
