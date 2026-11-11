@@ -181,7 +181,11 @@ const server = http.createServer((req, res) => {
         const result = await createRateLimitedMove(body, authorization.slice(7));
         return send(res, result.status, result.body, corsOrigin);
       } catch (error) {
-        if (error.code?.startsWith?.('auth/')) return send(res, 401, { error: 'Invalid authentication' }, corsOrigin);
+        if (error.code?.startsWith?.('auth/')) {
+          // Never expose tokens or Firebase internals to clients.
+          console.warn('Move auth rejected:', error.code);
+          return send(res, 401, { error: 'Invalid authentication', code: 'FIREBASE_SESSION_INVALID' }, corsOrigin);
+        }
         console.error('Test move endpoint:', error.code || error.message);
         return send(res, 500, { error: 'Message unavailable' }, corsOrigin);
       }
@@ -204,7 +208,7 @@ const server = http.createServer((req, res) => {
   req.on('end', async () => {
     try {
       const user = verifyTelegram(JSON.parse(data).initData, reason => console.warn('Telegram auth rejected:', reason));
-      if (!user) return send(res, 401, { error: 'Invalid or expired Telegram authentication' }, corsOrigin);
+      if (!user) return send(res, 401, { error: 'Invalid or expired Telegram authentication', code: 'TELEGRAM_AUTH_REJECTED' }, corsOrigin);
       const isAdmin = ADMIN_TELEGRAM_ID !== '' && String(user.id) === ADMIN_TELEGRAM_ID;
       const token = await getAuth().createCustomToken(
         'telegram:' + user.id,
