@@ -1665,7 +1665,7 @@
 
         // --- АНТИ-СПАМ ФІЛЬТР ---
         const forbiddenPatterns = [
-            /http/i, /t\.me/i, /@/i, /крипт/i, /заробіт/i, /казино/i, /ставк/i, /дур/i, /ідіот/i, /лох/i
+            /http/i, /t\.me/i, /@/i, /крипт/i, /заробіт/i, /казино/i, /(?:^|[^\p{L}])ставк/iu, /дур/i, /ідіот/i, /лох/i
         ];
 
         function checkAutoModeration(text) {
