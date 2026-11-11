@@ -5,6 +5,7 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { createVipPayments } from './vip-payments.js';
+import { createGiftPayments, isGiftOrder } from './gift-payments.js';
 
 const PORT = Number(process.env.PORT || 10000);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -164,7 +165,7 @@ async function deleteOwnProfile(idToken) {
 const vipWebhookSecret = process.env.TELEGRAM_STARS_WEBHOOK_SECRET || '';
 const vipEnabled = process.env.ENABLE_TELEGRAM_STARS === 'true' &&
   /^[A-Za-z0-9_-]{32,256}$/.test(vipWebhookSecret) && BOT_TOKEN && firebaseReady;
-const vipPayments = vipEnabled && createVipPayments(getFirestore(), async (method, data) => {
+async function telegramPayment(method, data) {
   const response = await fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/' + method, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -174,7 +175,9 @@ const vipPayments = vipEnabled && createVipPayments(getFirestore(), async (metho
   const result = await response.json();
   if (!response.ok || result.ok !== true) throw new Error('Telegram payment request failed');
   return result.result;
-});
+}
+const vipPayments = vipEnabled && createVipPayments(getFirestore(), telegramPayment);
+const giftPayments = vipEnabled && createGiftPayments(getFirestore(), telegramPayment);
 
 const server = http.createServer((req, res) => {
   const origin = req.headers.origin || '';
@@ -210,11 +213,13 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
-  if (vipPayments && (req.url === '/api/vip' || req.url === '/api/vip/checkout')) {
-    const checkout = req.url === '/api/vip/checkout';
+  const giftStatusId = req.url.startsWith('/api/gifts/') ? req.url.slice('/api/gifts/'.length) : '';
+  const giftRoute = req.url === '/api/gifts' || req.url === '/api/gifts/checkout' || isGiftOrder(giftStatusId);
+  if (vipPayments && (giftRoute || req.url === '/api/vip' || req.url === '/api/vip/checkout')) {
+    const checkout = req.url === '/api/vip/checkout' || req.url === '/api/gifts/checkout';
     if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
     if (req.method === 'OPTIONS') {
-      res.writeHead(204, { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization', 'Vary': 'Origin' });
+      res.writeHead(204, { 'Access-Control-Allow-Origin': corsOrigin, 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Vary': 'Origin' });
       return res.end();
     }
     if (req.method !== (checkout ? 'POST' : 'GET')) return send(res, 405, { error: 'Method not allowed' }, corsOrigin);
@@ -223,6 +228,22 @@ const server = http.createServer((req, res) => {
     return getAuth().verifyIdToken(authorization[1], true).then(async decoded => {
       const buyer = /^telegram:([1-9][0-9]{0,15})$/.exec(decoded.uid);
       if (!buyer || decoded.firebase?.sign_in_provider !== 'custom') return send(res, 401, { error: 'Invalid account' }, corsOrigin);
+      if (giftRoute) {
+        if (req.url === '/api/gifts') return send(res, 200, { gifts: giftPayments.catalog }, corsOrigin);
+        if (!checkout) {
+          const status = await giftPayments.getStatus(buyer[1], giftStatusId);
+          return status ? send(res, 200, status, corsOrigin) : send(res, 404, { error: 'Order not found' }, corsOrigin);
+        }
+        let raw = '';
+        for await (const chunk of req) {
+          raw += chunk;
+          if (raw.length > 1024) return send(res, 413, { error: 'Body too large' }, corsOrigin);
+        }
+        let body;
+        try { body = JSON.parse(raw); } catch { return send(res, 400, { error: 'Invalid body' }, corsOrigin); }
+        const invoice = await giftPayments.createInvoice(buyer[1], body?.recipient, body?.giftId);
+        return invoice ? send(res, 200, invoice, corsOrigin) : send(res, 403, { error: 'Gift unavailable' }, corsOrigin);
+      }
       if (!checkout) return send(res, 200, await vipPayments.getStatus(buyer[1]), corsOrigin);
       const invoiceUrl = await vipPayments.createInvoice(buyer[1]);
       if (!invoiceUrl) return send(res, 403, { error: 'Active profile required' }, corsOrigin);
@@ -243,7 +264,11 @@ const server = http.createServer((req, res) => {
     req.on('data', chunk => { raw += chunk; if (raw.length > 32768) req.destroy(); });
     req.on('end', async () => {
       try {
-        await vipPayments.handleUpdate(JSON.parse(raw));
+        const update = JSON.parse(raw);
+        const payload = update.pre_checkout_query?.invoice_payload ??
+          update.message?.successful_payment?.invoice_payload ?? update.message?.refunded_payment?.invoice_payload;
+        const payments = isGiftOrder(payload) ? giftPayments : vipPayments;
+        await payments.handleUpdate(update);
         send(res, 200, { ok: true });
       } catch {
         console.error('VIP webhook processing failed');

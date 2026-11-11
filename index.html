@@ -1027,7 +1027,7 @@
                                     <button class="reply-send-btn" onclick="sendPromptReply()">Хід ♞</button>
                                 </div>
                                 <div class="debut-hint" id="debut-hint-msg">
-                                    ⚠️ Заборонено пусті лайки та банальне «Привіт»! Обери швидкий дебют вище, напиши змістовну відповідь (мін. 2 слова) або подаруй 🎁.
+                                    ⚠️ Заборонено пусті лайки та банальне «Привіт»! Обери швидкий дебют вище, напиши змістовну відповідь (мін. 2 слова) або подаруй 🎁, якщо подарунки доступні.
                                 </div>
                             </div>
                         </div>
@@ -1038,6 +1038,12 @@
                         <button class="action-btn btn-like" onclick="attemptSmartMatch()">♔ Шах і Мат</button>
                     </div>
                 </div>
+                <section id="paid-gifts" class="box-card" hidden>
+                    <label for="paid-gift-choice">🎁 Платний подарунок</label>
+                    <select id="paid-gift-choice" class="form-input"></select>
+                    <button type="button" class="primary-btn" id="paid-gift-buy" onclick="buyGift()">Подарувати</button>
+                    <p id="paid-gift-status" role="status"></p>
+                </section>
             </div>
 
             <!-- Вкладка 3: Реєстрація (Зберігає в Firebase Cloud Firestore) -->
@@ -1263,6 +1269,7 @@
                 startFirestoreListeners();
                 refreshRegistrationState();
                 refreshVipStatus();
+                loadGiftCatalog();
             } catch (error) {
                 isFirebaseConnected = false;
                 verifiedTelegramUser = null;
@@ -1882,6 +1889,7 @@
         }
 
         function renderCard() {
+            renderGiftAvailability();
             const cardHolder = document.getElementById('card-holder');
             const cardEl = document.getElementById('current-card');
             let emptyState = document.getElementById('profiles-empty-state');
@@ -2177,14 +2185,15 @@
 
         let vipExpiry = 0;
         let vipCanBuy = false;
-        let vipPaymentPending = false;
+        let starsPaymentPending = false;
 
-        async function vipRequest(path = '', method = 'GET') {
+        async function starsRequest(path, method = 'GET', body) {
             const user = firebase.auth().currentUser;
             if (!isFirebaseConnected || !user) return null;
             const token = await user.getIdToken();
-            const response = await fetch('https://e-znayomstva-auth.onrender.com/api/vip' + path, {
-                method, headers: { Authorization: 'Bearer ' + token }
+            const response = await fetch('https://e-znayomstva-auth.onrender.com/api' + path, {
+                method, headers: { Authorization: 'Bearer ' + token, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+                body: body ? JSON.stringify(body) : undefined
             });
             if (response.status === 404) return null;
             if (!response.ok) throw new Error('VIP service unavailable');
@@ -2194,7 +2203,7 @@
         async function refreshVipStatus() {
             const panel = document.getElementById('vip-purchase');
             try {
-                const info = await vipRequest();
+                const info = await starsRequest('/vip');
                 if (!info) { panel.hidden = true; return false; }
                 vipExpiry = Number(info.vipUntil) || 0;
                 vipCanBuy = info.canBuy === true && typeof tg?.openInvoice === 'function';
@@ -2202,7 +2211,7 @@
                 document.getElementById('vip-expiry').textContent = vipExpiry > Date.now()
                     ? 'VIP діє до ' + new Date(vipExpiry).toLocaleDateString('uk-UA')
                     : info.canBuy ? 'VIP ще не активовано.' : 'Для покупки потрібна збережена анкета.';
-                document.getElementById('vip-buy').disabled = !vipCanBuy || vipPaymentPending;
+                document.getElementById('vip-buy').disabled = !vipCanBuy || starsPaymentPending;
                 return true;
             } catch {
                 if (!panel.hidden) document.getElementById('vip-payment-status').textContent = 'Не вдалося оновити статус VIP.';
@@ -2210,20 +2219,25 @@
             }
         }
 
+        function openStarsInvoice(invoice) {
+            if (!invoice?.invoiceUrl || !/^https:\/\/t\.me\/[A-Za-z0-9_$-]+$/.test(invoice.invoiceUrl)) {
+                throw new Error('Invalid Telegram invoice');
+            }
+            return new Promise(resolve => tg.openInvoice(invoice.invoiceUrl, resolve));
+        }
+
         async function buyVip() {
-            if (!vipCanBuy || vipPaymentPending) return;
+            if (!vipCanBuy || starsPaymentPending) return;
             const button = document.getElementById('vip-buy');
             const status = document.getElementById('vip-payment-status');
             const previousExpiry = vipExpiry;
-            vipPaymentPending = true;
+            starsPaymentPending = true;
             button.disabled = true;
+            renderGiftAvailability();
             status.textContent = 'Готуємо рахунок…';
             try {
-                const invoice = await vipRequest('/checkout', 'POST');
-                if (!invoice?.invoiceUrl || !/^https:\/\/t\.me\/[A-Za-z0-9_$-]+$/.test(invoice.invoiceUrl)) {
-                    throw new Error('Invalid Telegram invoice');
-                }
-                const result = await new Promise(resolve => tg.openInvoice(invoice.invoiceUrl, resolve));
+                const invoice = await starsRequest('/vip/checkout', 'POST');
+                const result = await openStarsInvoice(invoice);
                 if (result === 'paid' || result === 'pending') {
                     status.textContent = 'Чекаємо підтвердження оплати від Telegram…';
                     for (let attempt = 0; attempt < 6; attempt++) {
@@ -2240,8 +2254,74 @@
             } catch {
                 status.textContent = 'Не вдалося відкрити рахунок. Спробуй ще раз.';
             } finally {
-                vipPaymentPending = false;
+                starsPaymentPending = false;
                 button.disabled = !vipCanBuy;
+                renderGiftAvailability();
+            }
+        }
+
+        let paidGifts = [];
+
+        function renderGiftAvailability() {
+            const hasTarget = /^\d+$/.test(String(profiles[currentIndex]?.docId || ''));
+            document.getElementById('paid-gifts').hidden = !paidGifts.length || !hasTarget;
+            document.getElementById('paid-gift-buy').disabled = starsPaymentPending;
+        }
+
+        async function loadGiftCatalog() {
+            if (typeof tg?.openInvoice !== 'function') return;
+            try {
+                const catalog = await starsRequest('/gifts');
+                paidGifts = Array.isArray(catalog?.gifts) ? catalog.gifts : [];
+                const select = document.getElementById('paid-gift-choice');
+                select.replaceChildren(...paidGifts.map(gift => {
+                    const option = document.createElement('option');
+                    option.value = gift.id;
+                    option.textContent = gift.label + ' · ' + gift.price + ' ⭐';
+                    return option;
+                }));
+                renderGiftAvailability();
+            } catch {
+                // Leave the controls hidden while the catalog is unavailable.
+            }
+        }
+
+        async function buyGift() {
+            if (starsPaymentPending) return;
+            const recipient = profiles[currentIndex];
+            const gift = paidGifts.find(item => item.id === document.getElementById('paid-gift-choice').value);
+            if (!recipient?.docId || !gift) return;
+            if (!confirm('Надіслати «' + gift.label + '» користувачу ' + recipient.name + ' за ' + gift.price + ' ⭐?')) return;
+            const status = document.getElementById('paid-gift-status');
+            const vipButton = document.getElementById('vip-buy');
+            starsPaymentPending = true;
+            vipButton.disabled = true;
+            renderGiftAvailability();
+            status.textContent = 'Готуємо рахунок…';
+            try {
+                const invoice = await starsRequest('/gifts/checkout', 'POST', { recipient: String(recipient.docId), giftId: gift.id });
+                if (!/^gift-[0-9a-f-]{36}$/.test(invoice?.orderId || '')) throw new Error('Invalid gift order');
+                const result = await openStarsInvoice(invoice);
+                if (result !== 'paid' && result !== 'pending') {
+                    status.textContent = result === 'cancelled' ? 'Оплату скасовано.' : 'Оплату не завершено.';
+                    return;
+                }
+                status.textContent = 'Чекаємо підтвердження подарунка…';
+                for (let attempt = 0; attempt < 6; attempt++) {
+                    const order = await starsRequest('/gifts/' + invoice.orderId);
+                    if (order?.status === 'delivered' || order?.status === 'refunded') {
+                        status.textContent = order.status === 'delivered' ? 'Подарунок надіслано.' : 'Stars повернено.';
+                        return;
+                    }
+                    if (attempt < 5) await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+                status.textContent = 'Оплату ще перевіряємо. Подарунок з’явиться в діалозі після підтвердження.';
+            } catch {
+                status.textContent = 'Не вдалося підтвердити стан подарунка. Перевір діалог або звернися в підтримку.';
+            } finally {
+                starsPaymentPending = false;
+                vipButton.disabled = !vipCanBuy;
+                renderGiftAvailability();
             }
         }
 
