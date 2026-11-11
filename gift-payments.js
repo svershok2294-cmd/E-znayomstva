@@ -30,7 +30,7 @@ export function createGiftPayments(db, telegram, now = Date.now) {
     return available(sender) && available(target) && !blocked.exists && !reverse.exists;
   }
 
-  async function createInvoice(buyer, recipient, giftId) {
+  async function createInvoice(buyer, recipient, giftId, termsVersion) {
     const gift = catalog.find(item => item.id === giftId);
     if (!gift || !validUser(buyer) || !validUser(recipient) || buyer === recipient) return null;
     const orderId = 'gift-' + randomUUID();
@@ -38,7 +38,7 @@ export function createGiftPayments(db, telegram, now = Date.now) {
       if (!await eligible(tx, buyer, recipient)) return false;
       tx.create(orders.doc(orderId), {
         buyer, recipient, giftId, label: gift.label, price: gift.price,
-        expiresAt: now() + 15 * 60 * 1000, status: 'pending'
+        expiresAt: now() + 15 * 60 * 1000, status: 'pending', ...(termsVersion ? { termsVersion } : {})
       });
       return true;
     });

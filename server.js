@@ -7,6 +7,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { createVipPayments } from './vip-payments.js';
 import { createGiftPayments, isGiftOrder } from './gift-payments.js';
 import { loadTelegramSandbox } from './telegram-sandbox.js';
+import { paymentTerms } from './payment-terms.js';
 
 const PORT = Number(process.env.PORT || 10000);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -169,6 +170,7 @@ const vipWebhookSecret = process.env.TELEGRAM_STARS_WEBHOOK_SECRET || '';
 const vipEnabled = process.env.ENABLE_TELEGRAM_STARS === 'true' &&
   (sandbox || process.env.ENABLE_LIVE_TELEGRAM_STARS === 'true') &&
   /^[A-Za-z0-9_-]{32,256}$/.test(vipWebhookSecret) && BOT_TOKEN && firebaseReady;
+const starsPilotBuyer = process.env.STARS_PILOT_BUYER_ID || '';
 async function telegramPayment(method, data) {
   const response = await fetch(botApi + method, {
     method: 'POST',
@@ -182,7 +184,8 @@ async function telegramPayment(method, data) {
 }
 const vipPayments = vipEnabled && createVipPayments(getFirestore(), telegramPayment);
 const giftPayments = vipEnabled && createGiftPayments(getFirestore(), telegramPayment);
-let testWebhookReady = false;
+const liveWebhookOrigin = 'https://e-znayomstva-auth.onrender.com';
+let starsWebhookReady = false;
 
 const server = http.createServer((req, res) => {
   const origin = req.headers.origin || '';
@@ -193,7 +196,8 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === '/health' && req.method === 'GET') {
     return send(res, 200, { ok: true, configured: Boolean(BOT_TOKEN), firebaseReady,
-      ...(sandbox ? { telegramTestMode: true, starsEnabled: Boolean(vipEnabled), testWebhookReady } : {}) });
+      ...(sandbox ? { telegramTestMode: true, starsEnabled: Boolean(vipEnabled), testWebhookReady: starsWebhookReady } : {}),
+      ...(vipEnabled ? { starsWebhookReady } : {}) });
   }
   if (req.url === '/api/moves' && process.env.ENABLE_SERVER_MOVES === 'true') {
     if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
@@ -225,11 +229,15 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
+  if (req.url === '/api/terms' && req.method === 'GET') {
+    if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
+    return send(res, 200, paymentTerms, corsOrigin);
+  }
   const giftStatusId = req.url.startsWith('/api/gifts/') ? req.url.slice('/api/gifts/'.length) : '';
   const giftRoute = req.url === '/api/gifts' || req.url === '/api/gifts/checkout' || isGiftOrder(giftStatusId);
   if (vipPayments && (giftRoute || req.url === '/api/vip' || req.url === '/api/vip/checkout')) {
-    if (sandbox && process.env.REGISTER_TEST_STARS_WEBHOOK === 'true' && !testWebhookReady) {
-      return send(res, 503, { error: 'Test Stars webhook unavailable' }, corsOrigin);
+    if (!starsWebhookReady) {
+      return send(res, 503, { error: 'Stars webhook unavailable' }, corsOrigin);
     }
     const checkout = req.url === '/api/vip/checkout' || req.url === '/api/gifts/checkout';
     if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
@@ -243,24 +251,29 @@ const server = http.createServer((req, res) => {
     return getAuth().verifyIdToken(authorization[1], true).then(async decoded => {
       const buyer = /^telegram:([1-9][0-9]{0,15})$/.exec(decoded.uid);
       if (!buyer || decoded.firebase?.sign_in_provider !== 'custom') return send(res, 401, { error: 'Invalid account' }, corsOrigin);
+      if (decoded.starsEligible !== true) return send(res, 403, { error: 'Open the Mini App again through its bot' }, corsOrigin);
+      if (starsPilotBuyer && buyer[1] !== starsPilotBuyer) return send(res, 404, { error: 'Payments unavailable' }, corsOrigin);
+      let body;
+      if (checkout) {
+        let raw = '';
+        for await (const chunk of req) {
+          raw += chunk;
+          if (Buffer.byteLength(raw) > 1024) return send(res, 413, { error: 'Body too large' }, corsOrigin);
+        }
+        try { body = JSON.parse(raw); } catch { return send(res, 400, { error: 'Invalid body' }, corsOrigin); }
+        if (body?.termsVersion !== paymentTerms.version) return send(res, 409, { error: 'Accept current payment terms' }, corsOrigin);
+      }
       if (giftRoute) {
         if (req.url === '/api/gifts') return send(res, 200, { gifts: giftPayments.catalog }, corsOrigin);
         if (!checkout) {
           const status = await giftPayments.getStatus(buyer[1], giftStatusId);
           return status ? send(res, 200, status, corsOrigin) : send(res, 404, { error: 'Order not found' }, corsOrigin);
         }
-        let raw = '';
-        for await (const chunk of req) {
-          raw += chunk;
-          if (raw.length > 1024) return send(res, 413, { error: 'Body too large' }, corsOrigin);
-        }
-        let body;
-        try { body = JSON.parse(raw); } catch { return send(res, 400, { error: 'Invalid body' }, corsOrigin); }
-        const invoice = await giftPayments.createInvoice(buyer[1], body?.recipient, body?.giftId);
+        const invoice = await giftPayments.createInvoice(buyer[1], body.recipient, body.giftId, body.termsVersion);
         return invoice ? send(res, 200, invoice, corsOrigin) : send(res, 403, { error: 'Gift unavailable' }, corsOrigin);
       }
       if (!checkout) return send(res, 200, await vipPayments.getStatus(buyer[1]), corsOrigin);
-      const invoiceUrl = await vipPayments.createInvoice(buyer[1]);
+      const invoiceUrl = await vipPayments.createInvoice(buyer[1], body.termsVersion);
       if (!invoiceUrl) return send(res, 403, { error: 'Active profile required' }, corsOrigin);
       return send(res, 200, { invoiceUrl }, corsOrigin);
     }).catch(error => {
@@ -280,6 +293,16 @@ const server = http.createServer((req, res) => {
     req.on('end', async () => {
       try {
         const update = JSON.parse(raw);
+        const message = update.message;
+        const command = /^\/(terms|paysupport)(?:@[A-Za-z0-9_]+)?(?:\s|$)/i.exec(message?.text || '')?.[1]?.toLowerCase();
+        if (command && message.chat?.type === 'private' && message.chat.id === message.from?.id) {
+          await telegramPayment('sendMessage', {
+            chat_id: message.chat.id,
+            text: command === 'terms' ? paymentTerms.text :
+              'Підтримка оплат Е — Знайомства: @vladyslavsvershok. Додай квитанцію Telegram й опис проблеми. Не надсилай пароль або код входу.'
+          });
+          return send(res, 200, { ok: true });
+        }
         const payload = update.pre_checkout_query?.invoice_payload ??
           update.message?.successful_payment?.invoice_payload ?? update.message?.refunded_payment?.invoice_payload;
         const payments = isGiftOrder(payload) ? giftPayments : vipPayments;
@@ -333,7 +356,7 @@ const server = http.createServer((req, res) => {
       const isAdmin = ADMIN_TELEGRAM_ID !== '' && String(user.id) === ADMIN_TELEGRAM_ID;
       const token = await getAuth().createCustomToken(
         'telegram:' + user.id,
-        isAdmin ? { admin: true } : {}
+        { starsEligible: true, ...(isAdmin ? { admin: true } : {}) }
       );
       return send(res, 200, { verified: true, token, user }, corsOrigin);
     } catch (error) { console.error('Authentication failed:', error.message); return send(res, 500, { error: 'Authentication unavailable' }, corsOrigin); }
@@ -347,21 +370,34 @@ if (BOT_TOKEN) {
     .then(response => response.json())
     .then(async result => {
       console.log('Configured Telegram bot:', result.ok && result.result?.username ? '@' + result.result.username : 'TOKEN_REJECTED');
-      if (!sandbox || !vipEnabled || process.env.REGISTER_TEST_STARS_WEBHOOK !== 'true') return;
-      if (result.result?.username?.toLowerCase() !== process.env.TELEGRAM_TEST_BOT_USERNAME.toLowerCase()) {
-        console.warn('Test Stars webhook skipped: bot username mismatch');
+      if (!vipEnabled) return;
+      const expectedBot = sandbox ? process.env.TELEGRAM_TEST_BOT_USERNAME : 'e_znayomstva_bot';
+      if (result.result?.username?.toLowerCase() !== expectedBot.toLowerCase()) {
+        console.warn('Stars checkout disabled: bot username mismatch');
         return;
       }
+      const expectedUrl = (sandbox ? sandbox.origin : liveWebhookOrigin) + '/telegram/stars';
+      const register = sandbox ? process.env.REGISTER_TEST_STARS_WEBHOOK === 'true'
+        : process.env.REGISTER_LIVE_STARS_WEBHOOK === 'true';
       try {
-        await telegramPayment('setWebhook', {
-          url: sandbox.origin + '/telegram/stars',
-          secret_token: vipWebhookSecret,
-          allowed_updates: ['pre_checkout_query', 'message']
-        });
-        testWebhookReady = true;
-        console.log('Test Stars webhook registered');
+        const current = await telegramPayment('getWebhookInfo', {});
+        if (current.url && current.url !== expectedUrl) {
+          console.warn('Stars checkout disabled: Telegram webhook belongs to a different service');
+          return;
+        }
+        if (register) {
+          await telegramPayment('setWebhook', {
+            url: expectedUrl,
+            secret_token: vipWebhookSecret,
+            allowed_updates: ['pre_checkout_query', 'message']
+          });
+          starsWebhookReady = true;
+        } else {
+          starsWebhookReady = current.url === expectedUrl;
+        }
+        console.log(starsWebhookReady ? 'Stars webhook ready' : 'Stars webhook not configured');
       } catch {
-        console.warn('Test Stars webhook registration failed');
+        console.warn('Stars webhook verification failed');
       }
     })
     .catch(() => console.warn('Configured Telegram bot: LOOKUP_UNAVAILABLE'));

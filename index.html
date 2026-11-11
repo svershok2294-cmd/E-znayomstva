@@ -2222,6 +2222,12 @@
             }
         }
 
+        async function acceptStarsTerms() {
+            const terms = await starsRequest('/terms');
+            if (!terms?.version || !terms.text) throw new Error('Payment terms unavailable');
+            return confirm(terms.text + '\n\nПідтверджую, що прочитав(-ла) умови покупки.') ? terms.version : null;
+        }
+
         function openStarsInvoice(invoice) {
             if (!invoice?.invoiceUrl || !/^https:\/\/t\.me\/[A-Za-z0-9_$-]+$/.test(invoice.invoiceUrl)) {
                 throw new Error('Invalid Telegram invoice');
@@ -2239,7 +2245,9 @@
             renderGiftAvailability();
             status.textContent = 'Готуємо рахунок…';
             try {
-                const invoice = await starsRequest('/vip/checkout', 'POST');
+                const termsVersion = await acceptStarsTerms();
+                if (!termsVersion) { status.textContent = 'Покупку скасовано.'; return; }
+                const invoice = await starsRequest('/vip/checkout', 'POST', { termsVersion });
                 const result = await openStarsInvoice(invoice);
                 if (result === 'paid' || result === 'pending') {
                     status.textContent = 'Чекаємо підтвердження оплати від Telegram…';
@@ -2302,7 +2310,9 @@
             renderGiftAvailability();
             status.textContent = 'Готуємо рахунок…';
             try {
-                const invoice = await starsRequest('/gifts/checkout', 'POST', { recipient: String(recipient.docId), giftId: gift.id });
+                const termsVersion = await acceptStarsTerms();
+                if (!termsVersion) { status.textContent = 'Покупку скасовано.'; return; }
+                const invoice = await starsRequest('/gifts/checkout', 'POST', { recipient: String(recipient.docId), giftId: gift.id, termsVersion });
                 if (!/^gift-[0-9a-f-]{36}$/.test(invoice?.orderId || '')) throw new Error('Invalid gift order');
                 const result = await openStarsInvoice(invoice);
                 if (result !== 'paid' && result !== 'pending') {

@@ -16,10 +16,10 @@ export function createVipPayments(db, telegram, now = Date.now) {
   const matches = (order, buyer, payment) => order.buyer === buyer &&
     payment.currency === 'XTR' && payment.total_amount === order.price;
 
-  async function createInvoice(buyer) {
+  async function createInvoice(buyer, termsVersion) {
     if (!validId(buyer) || !available(await users.doc(buyer).get())) return null;
     const payload = randomUUID();
-    await orders.doc(payload).create({ buyer, price, expiresAt: now() + invoiceLifetime, status: 'pending' });
+    await orders.doc(payload).create({ buyer, price, expiresAt: now() + invoiceLifetime, status: 'pending', ...(termsVersion ? { termsVersion } : {}) });
     return telegram('createInvoiceLink', {
       title: 'VIP на 30 днів',
       description: 'Золота рамка анкети на 30 днів. Одноразова покупка.',
