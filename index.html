@@ -550,93 +550,7 @@
             transition: width 0.35s ease;
         }
 
-        .modal-backdrop {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.78);
-            backdrop-filter: blur(6px);
-            display: none;
-            align-items: flex-end;
-            justify-content: center;
-            z-index: 100;
-        }
-
-        .modal-backdrop.open {
-            display: flex;
-        }
-
-        .gift-sheet {
-            width: 100%;
-            max-width: 460px;
-            background: var(--bg-card);
-            border-top: 1px solid var(--white);
-            border-radius: 20px 20px 0 0;
-            padding: 16px 12px 24px;
-            max-height: 82vh;
-            overflow-y: auto;
-            animation: fadeUp 0.22s ease-out;
-        }
-
-        .gift-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-top: 8px;
-        }
-
-        .gift-item {
-            background: #181820;
-            border: 1px solid var(--border-bw);
-            border-radius: 12px;
-            padding: 10px 6px;
-            text-align: center;
-            cursor: pointer;
-        }
-
-        .gift-item.premium {
-            border-color: rgba(245, 197, 66, 0.45);
-            background: linear-gradient(180deg, #1b1914 0%, #14141a 100%);
-        }
-
-        .gift-emoji {
-            font-size: 25px;
-            margin-bottom: 3px;
-        }
-
-        .gift-title {
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--white);
-        }
-
-        .gift-cost {
-            font-size: 10px;
-            font-weight: 800;
-            margin-top: 3px;
-            color: var(--success);
-        }
-
-        .gift-item.premium .gift-cost {
-            color: var(--gold);
-        }
-
-        #gift-fly-anim {
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 200;
-            font-size: 92px;
-        }
-
-        #gift-fly-anim.play {
-            display: flex;
-            animation: giftPop 1.1s ease forwards;
-        }
-
-        .reg-container, .vip-container, .admin-wrapper, .matches-wrapper {
+        .reg-container, .admin-wrapper, .matches-wrapper {
             width: 100%;
             max-width: 440px;
             margin: 0 auto;
@@ -1046,7 +960,6 @@
 </head>
 <body>
 
-    <div id="gift-fly-anim">🎁</div>
 
     <header>
         <div class="logo-wrap">
@@ -1056,8 +969,6 @@
             <span id="auth-diagnostic" role="status" aria-live="polite" style="font-size:10px;color:#f5c542;max-width:170px;overflow-wrap:anywhere;">Вхід: перевірка…</span>
         </div>
         <div class="header-right">
-            <div class="vault-pill" onclick="openTabDirectly('vip')">🏦 <span id="vault-pts">20</span>💎</div>
-            <div class="balance-pill" onclick="openTabDirectly('vip')">⭐️ <span id="user-stars">0</span></div>
             <button class="layout-toggle-btn" id="view-mode-btn" onclick="toggleViewMode()">📱 Моб</button>
             <button type="button" class="admin-badge admin-only-el" id="admin-title" style="display:none" onclick="openAdminPanel()">♔ Адмін</button>
         </div>
@@ -1124,64 +1035,7 @@
 
                     <div class="actions">
                         <button class="action-btn btn-pass" onclick="nextProfile(false, '')">✕ Пас</button>
-                        <button class="action-btn btn-gift" onclick="openGiftModal()">🎁 Подарунок</button>
                         <button class="action-btn btn-like" onclick="attemptSmartMatch()">♔ Шах і Мат</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Вкладка 2: VIP Магазин + Королівський Сейф + Щоденний бонус -->
-            <div id="tab-vip" class="tab-content">
-                <div class="vip-container">
-                    <div class="vault-banner">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-size:13px; font-weight:900; color:var(--cyan);">🏦 КОРОЛІВСЬКИЙ СЕЙФ АКТИВНОСТІ</span>
-                            <span style="font-size:12px; font-weight:900;"><span id="vault-pts-big">20</span> / 100 💎</span>
-                        </div>
-                        <p style="font-size:11px; color:var(--off-white);">За кожен розумний хід (+10 💎), подарунок (+25 💎) та щоденний вхід (+15 💎) ти накопичуєш діаманти. Збери 100 💎 та активуй VIP безкоштовно!</p>
-                        <div class="progress-track">
-                            <div class="progress-fill" id="vault-progress"></div>
-                        </div>
-                        <button class="cyan-btn" onclick="claimVaultReward()">🔓 Обміняти 100 💎 на VIP Буст анкети</button>
-                    </div>
-
-                    <div class="box-card" style="border-color: rgba(56, 189, 248, 0.4);">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                            <strong style="font-size:12px; color:var(--cyan);">🔥 Щоденний бонус за вхід</strong>
-                            <span style="font-size:11px; font-weight:800; color:var(--success);" id="daily-streak-label">Серія: 1 дн.</span>
-                        </div>
-                        <p style="font-size:11px; color:var(--muted); margin-bottom:8px;">Заходь у додаток щодня, отримуй по +15 💎 та безкоштовні подарунки для знайомств.</p>
-                        <button class="primary-btn" id="daily-bonus-btn" onclick="manualClaimDailyBonus()">🎁 Перевірити щоденний бонус (+15 💎)</button>
-                    </div>
-
-                    <div class="vip-banner">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-size:14px; font-weight:900; color:var(--gold);">👑 КОРОЛІВСЬКИЙ VIP СТАТУС</span>
-                            <span class="vip-crown-pill">TELEGRAM STARS</span>
-                        </div>
-                        <div class="vip-feature-list">
-                            ✓ Золота рамка анкети та показ на 1-му місці у стрічці Firebase<br>
-                            ✓ Підвищений Індекс Надійності (+15% до репутації 🛡️)<br>
-                            ✓ Щоденне поповнення: +5 безкоштовних подарунків та +50 💎 у Сейф
-                        </div>
-                        <button class="gold-btn" onclick="payWithTelegramStars('Королівський VIP (30 днів)', 149)">Оплатити 149 ⭐️ через Telegram</button>
-                    </div>
-
-                    <div class="box-card">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                            <strong style="font-size:13px;">🚀 Турбо-хід (Буст анкети в ТОП)</strong>
-                            <span style="color:var(--gold); font-weight:800; font-size:12px;">49 ⭐️</span>
-                        </div>
-                        <p style="font-size:11px; color:var(--muted); margin-bottom:8px;">Твою анкету побачать першою 500+ користувачів твого міста протягом 24 годин.</p>
-                        <button class="primary-btn" onclick="payWithTelegramStars('Турбо-хід у ТОП', 49)">Оплатити 49 ⭐️ через Telegram</button>
-                    </div>
-
-                    <div class="box-card">
-                        <div style="font-size:12px; font-weight:800; margin-bottom:6px;">⭐️ Поповнити гаманець Зірок</div>
-                        <div class="form-row">
-                            <button class="btn-sm btn-ban-bw" onclick="topUpStars(25)">Купити +25 ⭐️</button>
-                            <button class="btn-sm btn-ban-bw" style="background:var(--gold-grad); color:#000;" onclick="topUpStars(100)">Купити +100 ⭐️</button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -1192,7 +1046,7 @@
                     <div class="box-card" style="display:flex; flex-direction:column; gap:10px;">
                         <div>
                             <h2 style="font-size:15px; font-weight:900; text-transform:uppercase;">♟️ Моя анкета (Реєстрація)</h2>
-                            <p style="font-size:11px; color:var(--muted); margin-top:2px;">Анкета зберігається у хмарній базі Firebase і миттєво стає доступною для всіх гравців.</p>
+                            <p style="font-size:11px; color:var(--muted); margin-top:2px;">Анкету бачать користувачі, які ввійшли через Telegram. Знайомства доступні лише повнолітнім (18+).</p>
                         </div>
 
                         <input type="file" id="reg-photo-input" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="previewRegPhoto(event)">
@@ -1207,11 +1061,11 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Ім'я</label>
-                                <input type="text" id="reg-name" class="form-input" value="Олена">
+                                <input type="text" id="reg-name" class="form-input" placeholder="Твоє ім’я">
                             </div>
                             <div class="form-group">
                                 <label>Вік</label>
-                                <input type="number" id="reg-age" class="form-input" min="18" max="99" step="1" required value="23">
+                                <input type="number" id="reg-age" class="form-input" min="18" max="99" step="1" required placeholder="18+">
                             </div>
                         </div>
 
@@ -1272,34 +1126,18 @@
             <!-- Вкладка 5: Адмін-панель -->
             <div id="tab-admin" class="tab-content">
                 <div class="admin-wrapper">
-                    <div class="vip-banner" style="margin-bottom:4px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-size:12px; font-weight:900; color:var(--gold);">⭐️ ОФІЦІЙНА КАСА TELEGRAM STARS</span>
-                            <span style="font-size:10px; color:var(--success); font-weight:800;" id="my-tg-id-display">ID: Адмін</span>
-                        </div>
-                        <div style="margin:2px 0;">
-                            <div style="font-size:21px; font-weight:900;"><span id="admin-revenue-stars">0</span> ⭐️ <span style="font-size:12px; color:var(--muted); font-weight:600;">(≈ <span id="admin-revenue-uah">0</span> грн)</span></div>
-                        </div>
-                        <input type="text" id="payout-requisites" class="form-input" placeholder="Твій TON-гаманець (UQ... або EQ...)">
-                        <button class="gold-btn" onclick="withdrawAdminProfit()">💎 Вивести баланс через Fragment у TON</button>
-                    </div>
-
+                    <div class="box-card"><span id="my-tg-id-display">Адмін</span></div>
                     <div class="box-card" style="border-color:rgba(52,199,89,0.4);">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <strong style="font-size:11px; color:var(--success);" id="firebase-admin-status">🟢 FIREBASE: ЗАХИЩЕНЕ ПІДКЛЮЧЕННЯ АКТИВНЕ</strong>
                             <span style="font-size:10px; color:var(--muted);">Cloud Sync</span>
                         </div>
-                        <p style="font-size:10px; color:var(--muted); margin-top:4px;">Ключ конфігурації зашифровано від GitHub Secret Scanner. Колекції: <code>ez_users</code>, <code>ez_reports</code>, <code>ez_moves</code>.</p>
                     </div>
 
                     <div class="stats-grid">
                         <div class="stat-box">
-                            <div class="stat-num" id="stat-reports">1</div>
+                            <div class="stat-num" id="stat-reports">0</div>
                             <div class="stat-label">Скарги / Фільтр</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-num" id="stat-bots">1</div>
-                            <div class="stat-label">Боти</div>
                         </div>
                         <div class="stat-box">
                             <div class="stat-num" id="stat-banned">0</div>
@@ -1309,9 +1147,6 @@
 
                     <div class="section-title">🚨 Скарги та перехоплення Авто-фільтра</div>
                     <div id="reports-list"></div>
-
-                    <div class="section-title">🤖 Виявлені спам-боти</div>
-                    <div id="bots-list"></div>
 
                     <div class="section-title">🔒 Чорний список</div>
                     <div id="banned-list"></div>
@@ -1324,10 +1159,6 @@
                 <span class="nav-icon">♞</span>
                 <span>Партія</span>
             </button>
-            <button class="nav-item" id="nav-btn-vip" onclick="switchTab('vip', this)">
-                <span class="nav-icon">💎</span>
-                <span style="color:var(--gold);">VIP & Сейф</span>
-            </button>
             <button class="nav-item" id="nav-btn-reg" onclick="switchTab('reg', this)">
                 <span class="nav-icon">📝</span>
                 <span>Анкета</span>
@@ -1337,85 +1168,11 @@
                 <span>Ходи (<span id="match-count">0</span>)</span>
             </button>
             <button class="nav-item admin-only-el" id="nav-btn-admin" onclick="switchTab('admin', this)">
-                <span class="badge-alert" id="nav-alert">2</span>
+                <span class="badge-alert" id="nav-alert">0</span>
                 <span class="nav-icon">♔</span>
                 <span>Адмін</span>
             </button>
         </nav>
-    </div>
-
-    <!-- Модальне вікно Подарунків -->
-    <div class="modal-backdrop" id="gift-modal" onclick="closeGiftModal(event)">
-        <div class="gift-sheet" onclick="event.stopPropagation()">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                <span style="font-size:14px; font-weight:900;">🎁 НАДІСЛАТИ ПОДАРУНОК (+25 💎 У СЕЙФ)</span>
-                <span style="font-size:11px; color:var(--success); font-weight:800;">Безкоштовних: <span id="free-gifts-left">5</span>/5</span>
-            </div>
-            <p style="font-size:11px; color:var(--muted);">Подарунок миттєво зараховується як перший хід і зберігається в Firebase!</p>
-
-            <div class="section-title">✨ Безкоштовні знаки уваги (5 шт)</div>
-            <div class="gift-grid">
-                <div class="gift-item" onclick="sendGift('☕', 'Кава', 0)">
-                    <div class="gift-emoji">☕</div>
-                    <div class="gift-title">Ароматна кава</div>
-                    <div class="gift-cost">Безкоштовно</div>
-                </div>
-                <div class="gift-item" onclick="sendGift('♟️', 'Перший хід', 0)">
-                    <div class="gift-emoji">♟️</div>
-                    <div class="gift-title">Білий пішак</div>
-                    <div class="gift-cost">Безкоштовно</div>
-                </div>
-                <div class="gift-item" onclick="sendGift('🌹', 'Троянда', 0)">
-                    <div class="gift-emoji">🌹</div>
-                    <div class="gift-title">Троянда</div>
-                    <div class="gift-cost">Безкоштовно</div>
-                </div>
-                <div class="gift-item" onclick="sendGift('✨', 'Іскра', 0)">
-                    <div class="gift-emoji">✨</div>
-                    <div class="gift-title">Іскра симпатії</div>
-                    <div class="gift-cost">Безкоштовно</div>
-                </div>
-                <div class="gift-item" onclick="sendGift('🍫', 'Шоколад', 0)">
-                    <div class="gift-emoji">🍫</div>
-                    <div class="gift-title">Солодкий хід</div>
-                    <div class="gift-cost">Безкоштовно</div>
-                </div>
-            </div>
-
-            <div class="section-title" style="color:var(--gold); margin-top:12px;">👑 Преміум подарунки за Telegram Stars ⭐️</div>
-            <div class="gift-grid">
-                <div class="gift-item premium" onclick="sendGift('🥂', 'Ігристе', 10)">
-                    <div class="gift-emoji">🥂</div>
-                    <div class="gift-title">Келих ігристого</div>
-                    <div class="gift-cost">10 ⭐️</div>
-                </div>
-                <div class="gift-item premium" onclick="sendGift('💐', 'Букет півоній', 15)">
-                    <div class="gift-emoji">💐</div>
-                    <div class="gift-title">Букет півоній</div>
-                    <div class="gift-cost">15 ⭐️</div>
-                </div>
-                <div class="gift-item premium" onclick="sendGift('♔', 'Золота Корона', 20)">
-                    <div class="gift-emoji">♔</div>
-                    <div class="gift-title">Корона Королеви</div>
-                    <div class="gift-cost">20 ⭐️</div>
-                </div>
-                <div class="gift-item premium" onclick="sendGift('💎', 'Діамант', 20)">
-                    <div class="gift-emoji">💎</div>
-                    <div class="gift-title">Чорний діамант</div>
-                    <div class="gift-cost">20 ⭐️</div>
-                </div>
-                <div class="gift-item premium" onclick="sendGift('🧸', 'Ведмедик', 15)">
-                    <div class="gift-emoji">🧸</div>
-                    <div class="gift-title">Плюшевий ведмідь</div>
-                    <div class="gift-cost">15 ⭐️</div>
-                </div>
-                <div class="gift-item premium" onclick="sendGift('🔥', 'Супер-Мат', 25)">
-                    <div class="gift-emoji">🔥</div>
-                    <div class="gift-title">Королівський Мат</div>
-                    <div class="gift-cost">25 ⭐️</div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- ПІДКЛЮЧЕННЯ ОФІЦІЙНИХ БІБЛІОТЕК FIREBASE FIRESTORE -->
@@ -1424,8 +1181,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+        const tg = window.Telegram?.WebApp;
+        tg?.expand();
 
         // Public Firebase Web configuration for the nazviazku project.
         const firebaseConfig = {
@@ -1454,7 +1211,14 @@
             let stage = 'telegram';
             const showStage = text => { if (diagnostic) diagnostic.textContent = text; };
             try {
-                if (!db || !tg.initData) throw new Error(!db ? 'FIREBASE_SDK' : 'TELEGRAM_INITDATA');
+                if (!tg?.initData) {
+                    const link = document.createElement('a');
+                    link.href = 'https://t.me/e_znayomstva_bot';
+                    link.textContent = 'Відкрити в Telegram';
+                    if (diagnostic) diagnostic.replaceChildren(link);
+                    return;
+                }
+                if (!db) throw new Error('FIREBASE_SDK');
                 stage = 'server';
                 showStage('Вхід: перевірка сервера…');
                 const response = await fetch('https://e-znayomstva-auth.onrender.com/auth/telegram', {
@@ -1470,6 +1234,11 @@
                 const credential = await firebase.auth().signInWithCustomToken(result.token);
                 if (credential.user.uid !== 'telegram:' + result.user.id) throw new Error('Unexpected Firebase identity');
                 verifiedTelegramUser = result.user;
+                currentUserId = result.user.id;
+                currentUserName = result.user.first_name || '';
+                currentUsername = result.user.username || '';
+                document.getElementById('my-tg-id-display').textContent = `TG ID: ${currentUserId}`;
+                if (currentUserName) document.getElementById('reg-name').value = currentUserName;
                 restoreConversationSeen();
                 const claims = await credential.user.getIdTokenResult();
                 isViewingAsAdmin = claims.claims.admin === true;
@@ -1489,75 +1258,26 @@
                     /^HTTP_\d{3}$/.test(error.message) ? error.message :
                     ['FIREBASE_SDK','TELEGRAM_INITDATA'].includes(error.message) ? error.message :
                     /^auth\/[a-z-]{1,60}$/.test(error.code || '') ? error.code : 'UNKNOWN';
-                showStage('Вхід: ' + stage + ' / ' + safeCode);
+                showStage('Не вдалося ввійти. Закрий Mini App і відкрий його знову.');
                 console.warn('Telegram authentication stage:', stage, 'code:', safeCode);
                 if (status) status.textContent = '⚠️ ВХІД TELEGRAM НЕ ПІДТВЕРДЖЕНО';
             }
         }
 
         // --- АВТОРИЗАЦІЯ TELEGRAM ---
-        const tgUser = tg.initDataUnsafe?.user;
-        const currentUserId = tgUser?.id || 777000;
-        const currentUserName = tgUser?.first_name || "Владислав";
-        const currentUsername = tgUser?.username || "";
-
-        if (tgUser?.first_name) {
-            document.getElementById('reg-name').value = tgUser.first_name;
-        }
+        let currentUserId = '';
+        let currentUserName = '';
+        let currentUsername = '';
 
         // Admin privileges must come from verified server-side Firebase claims.
         // Hide privileged controls until Firebase confirms the server-issued claim.
         let isViewingAsAdmin = false;
-        document.getElementById('my-tg-id-display').textContent = `TG ID: ${currentUserId}`;
         document.querySelectorAll('.admin-only-el').forEach(el => {
             el.style.display = 'none';
         });
 
         function openAdminPanel() {
             if (isViewingAsAdmin) openTabDirectly('admin');
-        }
-
-        // --- БАЛАНСИ ТА СЕЙФ ---
-        let userStars = parseInt(localStorage.getItem('chess_user_stars') || '0', 10);
-        let freeGiftsRemaining = parseInt(localStorage.getItem('chess_free_gifts') || '5', 10);
-        let adminRevenueStars = parseInt(localStorage.getItem('chess_admin_stars') || '0', 10);
-        let vaultPoints = parseInt(localStorage.getItem('chess_vault_pts') || '20', 10);
-        let dailyStreak = parseInt(localStorage.getItem('chess_daily_streak') || '1', 10);
-
-        const savedWallet = localStorage.getItem('chess_ton_wallet') || '';
-        if (savedWallet) document.getElementById('payout-requisites').value = savedWallet;
-
-        function saveBalances() {
-            localStorage.setItem('chess_user_stars', String(userStars));
-            localStorage.setItem('chess_free_gifts', String(freeGiftsRemaining));
-            localStorage.setItem('chess_admin_stars', String(adminRevenueStars));
-            localStorage.setItem('chess_vault_pts', String(vaultPoints));
-            localStorage.setItem('chess_daily_streak', String(dailyStreak));
-            updateBalancesUI();
-
-            // Never write shared revenue totals from a client-controlled balance.
-            // A verified server-side ledger is required for real payments/rewards.
-        }
-
-        function updateBalancesUI() {
-            document.getElementById('user-stars').textContent = userStars;
-            document.getElementById('free-gifts-left').textContent = freeGiftsRemaining;
-            document.getElementById('admin-revenue-stars').textContent = adminRevenueStars;
-            document.getElementById('admin-revenue-uah').textContent = adminRevenueStars;
-            document.getElementById('vault-pts').textContent = vaultPoints;
-            document.getElementById('vault-pts-big').textContent = vaultPoints;
-            document.getElementById('daily-streak-label').textContent = `Серія: ${dailyStreak} дн. 🔥`;
-            const pct = Math.min(100, Math.round((vaultPoints / 100) * 100));
-            document.getElementById('vault-progress').style.width = pct + '%';
-        }
-
-        function addVaultPoints(pts) {
-            // Never mint currency from client events. A trusted backend ledger is required.
-            return false;
-        }
-
-        function claimVaultReward() {
-            alert("Обмін діамантів тимчасово недоступний до запуску захищеного обліку нагород.");
         }
 
         // --- АДАПТИВНИЙ РЕЖИМ (МОБ / ПК) ---
@@ -1586,58 +1306,6 @@
         // --- СТАРТОВІ ЖИВІ АНКЕТИ (БЕЗ ТЕСТОВИХ БОТІВ У СТРІЧЦІ) ---
         let uploadedPhotoDataUrl = ""; // No unrelated person's photo as registration default.
 
-        const defaultProfiles = [
-            {
-                id: "#1042",
-                isVip: true,
-                trustScore: 98,
-                trustLabel: "🛡️ 98% Надійна партія",
-                name: "Аліна, 24",
-                city: "Одеса • 3 км від тебе • Онлайн",
-                img: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=800&q=80",
-                tags: ["☕ Кава на березі", "🎬 Кіно", "♟️ Психологія"],
-                question: "💬 Ідеальний перший хід зі мною:",
-                answer: "«Запросити на вечірню прогулянку біля моря без банальних питань про погоду»",
-                icebreakers: [
-                    "Знаю ідеальне місце з кавою біля моря ☕🌊",
-                    "Домовилися: жодного слова про погоду, тільки кіно 🎬"
-                ]
-            },
-            {
-                id: "#1088",
-                isVip: true,
-                trustScore: 96,
-                trustLabel: "🛡️ 96% Перевірений профіль",
-                name: "Вікторія, 25",
-                city: "Київ • 2 км від тебе • Онлайн",
-                img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=800&q=80",
-                tags: ["🎨 Дизайн", "🎵 Вініл", "✈️ Подорожі"],
-                question: "💬 Два факти і одна брехня:",
-                answer: "«Стрибала з парашутом, вмію грати сицилійський захист у шахах, ніколи не пила лате. Вгадаєш?»",
-                icebreakers: [
-                    "Ставлю на те, що неможливо не пити каву ☕😄",
-                    "Зіграємо партію з сицилійським захистом? ♟️"
-                ]
-            },
-            {
-                id: "#1104",
-                isVip: false,
-                trustScore: 94,
-                trustLabel: "🛡️ 94% Верифіковано",
-                name: "Дарина, 23",
-                city: "Львів • Онлайн",
-                img: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=800&q=80",
-                tags: ["📚 Книги", "🍷 Вечірні розмови", "🌊 Море"],
-                question: "💬 Мене можна підкорити, якщо:",
-                answer: "«У тебе класне почуття гумору і ти знаєш, який фільм подивитися ввечері»",
-                icebreakers: [
-                    "Маю топ-3 фільми на вечір, який жанр обираєш? 🍿",
-                    "Гумор і смачна кава — мій улюблений дебют ☕✨"
-                ]
-            }
-        ];
-
-        // Demo cards remain visible only before authenticated Firestore data arrives.
         let profiles = [];
         let allDatingProfiles = [];
         const datingFilter = {city:'',min:'',max:'',interest:''};
@@ -1734,7 +1402,6 @@
         }
         // Moderation data must come from Firestore, never fabricated demo incidents.
         let reportsData = [];
-        let botsData = [];
 
         let currentIndex = 0;
         let sentResponses = [];
@@ -2200,36 +1867,6 @@
                 console.warn('Report submission failed:', error);
                 alert('❌ Не вдалося надіслати скаргу. Спробуй ще раз пізніше.');
             }
-        }
-
-        function topUpStars(amount) { alert("Оплата Telegram Stars та бонуси будуть доступні після підключення перевірених серверних платежів."); }
-
-        function payWithTelegramStars(serviceTitle, costStars) { alert("Оплата Telegram Stars та бонуси будуть доступні після підключення перевірених серверних платежів."); }
-
-        function withdrawAdminProfit() {
-            alert("Виведення коштів недоступне без перевіреного серверного обліку транзакцій.");
-        }
-
-        function playGiftAnimation(emoji) {
-            const animEl = document.getElementById('gift-fly-anim');
-            animEl.textContent = emoji;
-            animEl.classList.remove('play');
-            void animEl.offsetWidth;
-            animEl.classList.add('play');
-            setTimeout(() => animEl.classList.remove('play'), 1100);
-        }
-
-        function openGiftModal() {
-            if (currentIndex >= profiles.length) return;
-            document.getElementById('gift-modal').classList.add('open');
-        }
-
-        function closeGiftModal() {
-            document.getElementById('gift-modal').classList.remove('open');
-        }
-
-        function sendGift(emoji, title, costStars) {
-            alert("Надсилання подарунків тимчасово недоступне до перевірки балансу на сервері.");
         }
 
         function renderCard() {
@@ -2699,10 +2336,9 @@
 
         function renderAdminLists() {
             document.getElementById('stat-reports').textContent = reportsData.length;
-            document.getElementById('stat-bots').textContent = botsData.length;
             document.getElementById('stat-banned').textContent = bannedUsers.length;
 
-            const totalActive = reportsData.length + botsData.length;
+            const totalActive = reportsData.length;
             const alertBadge = document.getElementById('nav-alert');
             alertBadge.style.display = totalActive > 0 ? 'inline-block' : 'none';
             alertBadge.textContent = totalActive;
@@ -2720,27 +2356,7 @@
                         </div>
                         <div class="report-text">${escapeAdminHtml(r.text)}</div>
                         <div class="admin-btn-row">
-                            <button class="btn-sm btn-ban-bw" onclick="handleReport(${escapeAdminHtml(JSON.stringify(r.id))}, true)">♔ В бан</button>
-                            <button class="btn-sm btn-ignore-bw" onclick="handleReport(${escapeAdminHtml(JSON.stringify(r.id))}, false)">Відхилити</button>
-                        </div>
-                    </div>
-                `).join('');
-
-            document.getElementById('bots-list').innerHTML = botsData.length === 0
-                ? `<div class="box-card" style="font-size:11px; color:var(--muted); text-align:center;">Спам-ботів не виявлено ✓</div>`
-                : botsData.map(b => `
-                    <div class="bw-card">
-                        <div class="bw-card-header">
-                            <img class="avatar-sm" src="${safeAdminImage(b.img)}">
-                            <div>
-                                <h4 style="font-size:13px;">${escapeAdminHtml(b.name)}</h4>
-                                <span class="reason-tag">${escapeAdminHtml(b.reason)}</span>
-                            </div>
-                        </div>
-                        <div class="report-text">${escapeAdminHtml(b.text)}</div>
-                        <div class="admin-btn-row">
-                            <button class="btn-sm btn-ban-bw" onclick="handleBot(${escapeAdminHtml(JSON.stringify(b.id))}, true)">🤖 Заблокувати</button>
-                            <button class="btn-sm btn-ignore-bw" onclick="handleBot(${escapeAdminHtml(JSON.stringify(b.id))}, false)">Ігнорувати</button>
+                            <button class="btn-sm btn-ignore-bw" onclick="dismissReport(${escapeAdminHtml(JSON.stringify(r.id))})">Відхилити скаргу</button>
                         </div>
                     </div>
                 `).join('');
@@ -2761,24 +2377,16 @@
                 `).join('');
         }
 
-        async function handleReport(id, isBan) {
+        async function dismissReport(id) {
             if (!isViewingAsAdmin || !isFirebaseConnected || !db) return;
             const item = reportsData.find(r => r.id === id);
             if (!item) return;
             try {
-                // A report is not proof of misconduct. Never create a fake ban.
-                // Actual profile bans require a verified target profile ID and separate review.
                 await db.collection('ez_reports').doc(id).delete();
             } catch (error) {
                 console.warn('Report moderation failed:', error.code || error.message);
                 alert("Не вдалося обробити скаргу. Перевір права адміністратора.");
             }
-        }
-
-        function handleBot(id, isBan) {
-            // No server-backed bot detection is implemented yet.
-            if (!isViewingAsAdmin) return;
-            alert("Автоматичне блокування ботів ще не підключено.");
         }
 
         function unbanUser(index, docId) {
@@ -2803,31 +2411,9 @@
             switchTab(tabName, document.getElementById('nav-btn-' + tabName));
         }
 
-        // =========================================================================
-        // 🎁 ЩОДЕННИЙ БОНУС ЗА ВХІД У ДОДАТОК (DAILY RETENTION)
-        // =========================================================================
-        function checkDailyBonus(isManualClick = false) {
-            // Rewards must be granted by a verified backend ledger, never localStorage.
-            // Keep existing locally stored balances untouched during migration.
-            const btn = document.getElementById('daily-bonus-btn');
-            if (btn) {
-                btn.textContent = "⏳ Щоденний бонус тимчасово недоступний";
-                btn.disabled = true;
-            }
-            if (isManualClick) {
-                alert("Щоденний бонус буде доступний після запуску захищеного обліку діамантів.");
-            }
-        }
-
-        function manualClaimDailyBonus() {
-            checkDailyBonus(true);
-        }
-
-        updateBalancesUI();
         updateMatchesUI();
         renderCard();
         renderAdminLists();
-        checkDailyBonus(false);
         authenticateTelegram();
     </script>
 </body>
