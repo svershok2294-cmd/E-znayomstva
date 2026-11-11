@@ -192,27 +192,28 @@ test('live feed, chat and moderation listeners enforce the same access as reads'
   await assert.rejects(firstServerSnapshot(collection(bob, 'ez_blocks/101/users')), { code: 'permission-denied' });
   await assert.rejects(firstServerSnapshot(reports(alice)), { code: 'permission-denied' });
 
-  const pending = Promise.all([
-    firstServerSnapshot(feed(bob), snapshot => snapshot.size === 1),
-    firstServerSnapshot(recentMoves(alice, 'fromUserId', '101'), snapshot => snapshot.size === 1),
-    firstServerSnapshot(recentMoves(bob, 'targetUserId', '202'), snapshot => snapshot.size === 1),
-    firstServerSnapshot(collection(alice, 'ez_blocks/101/users'), snapshot => snapshot.size === 1),
-    firstServerSnapshot(reports(moderator), snapshot => snapshot.size === 1)
-  ]);
-  const [, , snapshots] = await Promise.all([
-    env.withSecurityRulesDisabled(async ctx => {
-      const db = ctx.firestore();
-      await Promise.all([
-        setDoc(doc(db, 'ez_users/101'), profile('101')),
-        setDoc(doc(db, 'ez_moves/message'), {
-          fromUserId: '101', targetUserId: '202', myReply: 'Hello', createdAt: Date.now()
-        }),
-        setDoc(doc(db, 'ez_reports/report'), { createdAt: Date.now() })
-      ]);
-    }),
-    setDoc(doc(alice, 'ez_blocks/101/users/202'), { blockedAt: Date.now() }),
-    pending
-  ]);
+  await env.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    await Promise.all([
+      setDoc(doc(db, 'ez_users/101'), profile('101')),
+      setDoc(doc(db, 'ez_moves/message'), {
+        fromUserId: '101', targetUserId: '202', myReply: 'Hello', createdAt: Date.now()
+      }),
+      setDoc(doc(db, 'ez_reports/report'), { createdAt: Date.now() })
+    ]);
+  });
+  await setDoc(doc(alice, 'ez_blocks/101/users/202'), { blockedAt: Date.now() });
+
+  const snapshots = [];
+  for (const ref of [
+    feed(bob),
+    recentMoves(alice, 'fromUserId', '101'),
+    recentMoves(bob, 'targetUserId', '202'),
+    collection(alice, 'ez_blocks/101/users'),
+    reports(moderator)
+  ]) {
+    snapshots.push(await firstServerSnapshot(ref));
+  }
   assert.deepEqual(snapshots.map(snapshot => snapshot.docs[0].id), ['101', 'message', 'message', '202', 'report']);
 });
 
