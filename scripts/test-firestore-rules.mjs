@@ -3,6 +3,8 @@ import { after, before, beforeEach, test } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, runTransaction, setDoc, updateDoc, where, writeBatch } from 'firebase/firestore';
+import { deleteApp, initializeApp } from 'firebase/app';
+import * as firestoreLite from 'firebase/firestore/lite';
 
 let env;
 const projectId = 'demo-e-znayomstva';
@@ -231,11 +233,29 @@ test('live receipt subscription works before the document exists and receives th
   assert.equal(snapshot.data().seenAt, seenAt);
 });
 
-test('chat listeners keep the newest 30 moves in each direction', async () => {
-  const alice = telegram('101');
-  const bob = telegram('202');
-  const sent = recentMoves(alice, 'fromUserId', '101');
-  const received = recentMoves(bob, 'targetUserId', '202');
+test('chat queries return the newest 30 moves in each direction', async t => {
+  // Use the REST transport for the large result set. The separate listener test
+  // covers updates over streams, which can hit firebase-tools issue #8654.
+  function recentMovesOverRest(field, id) {
+    const app = initializeApp({ projectId }, 'recent-moves-' + id);
+    t.after(() => deleteApp(app));
+    const db = firestoreLite.getFirestore(app);
+    firestoreLite.connectFirestoreEmulator(db, '127.0.0.1', 8088, {
+      mockUserToken: {
+        sub: 'telegram:' + id,
+        firebase: { sign_in_provider: 'custom' }
+      }
+    });
+    return firestoreLite.query(
+      firestoreLite.collection(db, 'ez_moves'),
+      firestoreLite.where(field, '==', id),
+      firestoreLite.orderBy('createdAt', 'desc'),
+      firestoreLite.limit(30)
+    );
+  }
+
+  const sent = recentMovesOverRest('fromUserId', '101');
+  const received = recentMovesOverRest('targetUserId', '202');
   const move = { fromUserId: '101', targetUserId: '202', myReply: 'Hello' };
   const start = Date.now() - 1000;
 
@@ -253,16 +273,13 @@ test('chat listeners keep the newest 30 moves in each direction', async () => {
     'message-' + String(30 - index).padStart(2, '0')
   );
   for (const ref of [sent, received]) {
-    const snapshot = await firstServerSnapshot(ref);
+    const snapshot = await firestoreLite.getDocs(ref);
     assert.deepEqual(snapshot.docs.map(doc => doc.id), expected);
   }
 
-  const incoming = firstServerSnapshot(received, snapshot => snapshot.docs[0]?.id === 'z-new');
-  const [snapshot] = await Promise.all([
-    incoming,
-    env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'ez_moves/z-new'), {
-      ...move, createdAt: start + 31
-    }))
-  ]);
+  await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'ez_moves/z-new'), {
+    ...move, createdAt: start + 31
+  }));
+  const snapshot = await firestoreLite.getDocs(received);
   assert.deepEqual(snapshot.docs.map(doc => doc.id), ['z-new', ...expected.slice(0, 29)]);
 });
