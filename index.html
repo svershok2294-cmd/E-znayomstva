@@ -1447,6 +1447,15 @@
             console.warn("Firebase initialization failed:", err);
         }
 
+        // Match the auth backend to the Mini App host. Never send production bot initData to test auth.
+        const TELEGRAM_AUTH_BASE = location.hostname === 'e-znayomstva-test.onrender.com'
+            ? 'https://e-znayomstva-test-auth.onrender.com'
+            : 'https://e-znayomstva-auth.onrender.com';
+        function showTelegramReopenNotice() {
+            const diagnostic = document.getElementById('auth-diagnostic');
+            if (diagnostic) diagnostic.textContent = 'Сесія Telegram застаріла. Закрий застосунок і відкрий його знову через бота.';
+        }
+
         async function authenticateTelegram() {
             const status = document.getElementById('firebase-admin-status');
             const diagnostic = document.getElementById('auth-diagnostic');
@@ -1456,12 +1465,18 @@
                 if (!db || !tg.initData) throw new Error(!db ? 'FIREBASE_SDK' : 'TELEGRAM_INITDATA');
                 stage = 'server';
                 showStage('Вхід: перевірка сервера…');
-                const response = await fetch('https://e-znayomstva-test-auth.onrender.com/auth/telegram', {
+                const response = await fetch(TELEGRAM_AUTH_BASE + '/auth/telegram', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ initData: tg.initData })
                 });
-                if (!response.ok) throw new Error('HTTP_' + response.status);
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        showTelegramReopenNotice();
+                        throw new Error('TELEGRAM_SESSION_EXPIRED');
+                    }
+                    throw new Error('HTTP_' + response.status);
+                }
                 const result = await response.json();
                 if (!result.verified || !result.token || !result.user) throw new Error('Invalid authentication response');
                 stage = 'firebase';
@@ -1486,9 +1501,10 @@
                 verifiedTelegramUser = null;
                 const safeCode = error instanceof TypeError ? 'NETWORK_OR_CORS' :
                     /^HTTP_\d{3}$/.test(error.message) ? error.message :
-                    ['FIREBASE_SDK','TELEGRAM_INITDATA'].includes(error.message) ? error.message :
+                    ['FIREBASE_SDK','TELEGRAM_INITDATA','TELEGRAM_SESSION_EXPIRED'].includes(error.message) ? error.message :
                     /^auth\/[a-z-]{1,60}$/.test(error.code || '') ? error.code : 'UNKNOWN';
-                showStage('Вхід: ' + stage + ' / ' + safeCode);
+                if (safeCode === 'TELEGRAM_SESSION_EXPIRED' || safeCode === 'TELEGRAM_INITDATA') showTelegramReopenNotice();
+                else showStage('Вхід: ' + stage + ' / ' + safeCode);
                 console.warn('Telegram authentication stage:', stage, 'code:', safeCode);
                 if (status) status.textContent = '⚠️ ВХІД TELEGRAM НЕ ПІДТВЕРДЖЕНО';
             }
@@ -1917,17 +1933,24 @@
         }
         async function submitMoveViaServer(targetUserId, myReply) {
             const currentUser = firebase.auth().currentUser;
-            if (!currentUser || !verifiedTelegramUser) throw new Error('Спочатку підтвердь вхід через Telegram.');
-            const token = await currentUser.getIdToken();
-            const response = await fetch('https://e-znayomstva-test-auth.onrender.com/api/moves', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-                body: JSON.stringify({ targetUserId: String(targetUserId), myReply: String(myReply) })
-            });
-            const result = await response.json().catch(() => ({}));
-            if (response.status === 429) throw new Error('⏳ Зачекай ' + (Number(result.retryAfterSeconds) || 5) + ' с перед наступним повідомленням.');
-            if (!response.ok || !result.ok) throw new Error(response.status === 403 ? 'Листування заблоковано.' : 'Сервер не зміг надіслати повідомлення (' + response.status + ').');
-            return result;
+            if (!currentUser || !verifiedTelegramUser || currentUser.uid !== 'telegram:' + verifiedTelegramUser.id)
+                throw new Error('Спочатку підтвердь вхід через Telegram.');
+            const payload = JSON.stringify({ targetUserId: String(targetUserId), myReply: String(myReply) });
+            // Retry only authentication failures, never network errors or uncertain writes.
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const token = await currentUser.getIdToken(attempt === 1);
+                const response = await fetch(TELEGRAM_AUTH_BASE + '/api/moves', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: payload
+                });
+                const result = await response.json().catch(() => ({}));
+                if (response.status === 401 && attempt === 0) continue;
+                if (response.status === 401) throw new Error('Сесія Firebase недійсна. Закрий застосунок і відкрий його знову через Telegram.');
+                if (response.status === 429) throw new Error('⏳ Зачекай ' + (Number(result.retryAfterSeconds) || 5) + ' с перед наступним повідомленням.');
+                if (!response.ok || !result.ok) throw new Error(response.status === 403 ? 'Листування заблоковано.' : 'Сервер не зміг надіслати повідомлення (' + response.status + ').');
+                return result;
+            }
         }
         async function sendReplyToMove(senderId, message, button) {
             const text = String(message || '').trim();
