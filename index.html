@@ -1359,64 +1359,79 @@
 
     <!-- ПІДКЛЮЧЕННЯ ОФІЦІЙНИХ БІБЛІОТЕК FIREBASE FIRESTORE -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // =========================================================================
-        // 🔒 ЗАШИФРОВАНА КОНФІГУРАЦІЯ FIREBASE (НЕВИДИМА ДЛЯ GITHUB SECRET SCANNER)
-        // =========================================================================
-        const _kParts = ["QUl6YVN5Q1Z2b0k5Tlct", "QlNYVmJqaVR5R2VLdXRB", "cUpqYWFyc3Iw"];
-        const _pId = ["nazviazku", "38b50"].join("-");
+        // Public Firebase Web configuration for the nazviazku project.
         const firebaseConfig = {
-            apiKey: atob(_kParts.join("")),
-            authDomain: _pId + ".firebaseapp.com",
-            projectId: _pId,
-            storageBucket: _pId + ".firebasestorage.app",
-            messagingSenderId: "1027185291009",
-            appId: "1:1027185291009:web:db922f3d5a7325588c7500"
+            apiKey: "AIzaSyC5Ox_25cWYi12M3dMlCpCXKfT-oZub8ts",
+            authDomain: "nazviazku.firebaseapp.com",
+            projectId: "nazviazku",
+            storageBucket: "nazviazku.firebasestorage.app",
+            messagingSenderId: "888760556395",
+            appId: "1:888760556395:web:8262589e08a7726d2c4a2e",
+            measurementId: "G-1QY879RQGX"
         };
 
+        const apiOrigin = 'https://e-znayomstva-auth.onrender.com';
         let db = null;
         let isFirebaseConnected = false;
+        let isAdmin = false;
+        let isViewingAsAdmin = false;
+        let currentUserId = '';
+        let currentUserName = '';
+        let currentUsername = '';
 
-        try {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            isFirebaseConnected = true;
-            document.getElementById('db-status-dot').classList.add('online');
-        } catch (err) {
-            console.warn("Firebase fallback mode:", err);
-        }
-
-        // --- АВТОРИЗАЦІЯ TELEGRAM ---
-        const tgUser = tg.initDataUnsafe?.user;
-        const currentUserId = tgUser?.id || 777000;
-        const currentUserName = tgUser?.first_name || "Владислав";
-        const currentUsername = tgUser?.username || "";
-
-        if (tgUser?.first_name) {
-            document.getElementById('reg-name').value = tgUser.first_name;
-        }
-
-        if (!localStorage.getItem('chess_owner_id')) {
-            localStorage.setItem('chess_owner_id', String(currentUserId));
-        }
-        const ownerId = localStorage.getItem('chess_owner_id');
-        let isViewingAsAdmin = (String(currentUserId) === String(ownerId));
-        document.getElementById('my-tg-id-display').textContent = `TG ID: ${currentUserId}`;
-
-        function toggleAdminPreview() {
-            if (String(currentUserId) !== String(ownerId)) return;
-            isViewingAsAdmin = !isViewingAsAdmin;
+        function showAdminControls() {
             document.querySelectorAll('.admin-only-el').forEach(el => {
                 el.style.display = isViewingAsAdmin ? '' : 'none';
             });
+        }
+
+        function toggleAdminPreview() {
+            if (!isAdmin) return;
+            isViewingAsAdmin = !isViewingAsAdmin;
+            showAdminControls();
             document.getElementById('admin-title').textContent = isViewingAsAdmin ? '♔ ВЛАД' : '👁 ЮЗЕР';
             if (!isViewingAsAdmin && document.getElementById('tab-admin').classList.contains('active')) {
                 openTabDirectly('swipe');
+            }
+        }
+
+        async function authenticateTelegram() {
+            if (!tg.initData) return;
+            const status = document.getElementById('firebase-admin-status');
+            try {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                const response = await fetch(apiOrigin + '/auth/telegram', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initData: tg.initData })
+                });
+                if (!response.ok) throw new Error('Telegram authentication rejected');
+                const result = await response.json();
+                const credential = await firebase.auth().signInWithCustomToken(result.token);
+                if (credential.user.uid !== 'telegram:' + result.user.id) throw new Error('Unexpected Firebase identity');
+                const identity = await credential.user.getIdTokenResult();
+                currentUserId = String(result.user.id);
+                currentUserName = result.user.first_name || '';
+                currentUsername = result.user.username || '';
+                if (currentUserName) document.getElementById('reg-name').value = currentUserName;
+                document.getElementById('my-tg-id-display').textContent = 'TG ID: ' + currentUserId;
+                isAdmin = identity.claims.admin === true;
+                isViewingAsAdmin = isAdmin;
+                showAdminControls();
+                isFirebaseConnected = true;
+                document.getElementById('db-status-dot').classList.add('online');
+                status.textContent = '🟢 FIREBASE: TELEGRAM АВТОРИЗОВАНО';
+                startFirestoreListeners();
+            } catch {
+                status.textContent = '⚠️ ВХІД TELEGRAM НЕ ПІДТВЕРДЖЕНО';
             }
         }
 
@@ -1438,12 +1453,6 @@
             localStorage.setItem('chess_daily_streak', String(dailyStreak));
             updateBalancesUI();
 
-            if (isFirebaseConnected && db) {
-                db.collection('ez_stats').doc('global_cashbox').set({
-                    adminRevenueStars: adminRevenueStars,
-                    updatedAt: Date.now()
-                }, { merge: true }).catch(e => console.warn(e));
-            }
         }
 
         function updateBalancesUI() {
@@ -1574,10 +1583,12 @@
 
         let currentIndex = 0;
         let sentResponses = [];
+        let receivedResponses = [];
+        let movePending = false;
         let bannedUsers = [];
 
         // Слухачі реального часу Firebase Firestore
-        if (isFirebaseConnected && db) {
+        function startFirestoreListeners() {
             db.collection('ez_users').orderBy('createdAt', 'desc').limit(50).onSnapshot(snapshot => {
                 const cloudProfiles = [];
                 const cloudBanned = [];
@@ -1586,12 +1597,14 @@
                     if (data.isBanned) {
                         cloudBanned.push({ docId: doc.id, ...data });
                     } else {
-                        cloudProfiles.push({ docId: doc.id, ...data });
+                        if (doc.id !== currentUserId) cloudProfiles.push({ ...data, docId: doc.id });
                     }
                 });
                 bannedUsers = cloudBanned;
-                // Коли є достатньо живих анкет (від 5+), показуємо тільки реальних людей
-                profiles = cloudProfiles.length >= 5 ? cloudProfiles : [...cloudProfiles, ...defaultProfiles];
+                const selected = profiles[currentIndex]?.docId;
+                profiles = cloudProfiles;
+                const selectedIndex = profiles.findIndex(profile => profile.docId === selected);
+                currentIndex = selectedIndex >= 0 ? selectedIndex : Math.min(currentIndex, profiles.length);
                 renderCard();
                 renderAdminLists();
             }, err => {
@@ -1599,25 +1612,22 @@
                 document.getElementById('firebase-admin-status').textContent = "⚠️ ПЕРЕВІР FIRESTORE RULES (ДОЗВОЛЬ READ/WRITE ДЛЯ ez_*)";
             });
 
-            db.collection('ez_reports').orderBy('createdAt', 'desc').limit(30).onSnapshot(snapshot => {
-                const cloudReports = [];
-                snapshot.forEach(doc => {
-                    cloudReports.push({ id: doc.id, ...doc.data() });
-                });
-                if (cloudReports.length > 0) {
-                    reportsData = cloudReports;
+            if (isAdmin) {
+                db.collection('ez_reports').orderBy('createdAt', 'desc').limit(30).onSnapshot(snapshot => {
+                    reportsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
                     renderAdminLists();
-                }
-            }, err => console.warn(err));
+                }, err => console.warn(err.code));
+            }
 
-            db.collection('ez_moves').where('fromUserId', '==', String(currentUserId)).limit(30).onSnapshot(snapshot => {
-                const moves = [];
-                snapshot.forEach(doc => moves.push(doc.data()));
-                if (moves.length > 0) {
-                    sentResponses = moves;
-                    updateMatchesUI();
-                }
-            }, err => console.warn(err));
+            const moves = db.collection('ez_moves');
+            moves.where('fromUserId', '==', currentUserId).limit(30).onSnapshot(snapshot => {
+                sentResponses = snapshot.docs.map(doc => doc.data());
+                updateMatchesUI();
+            }, err => console.warn(err.code));
+            moves.where('targetUserId', '==', currentUserId).limit(30).onSnapshot(snapshot => {
+                receivedResponses = snapshot.docs.map(doc => ({ ...doc.data(), incoming: true }));
+                updateMatchesUI();
+            }, err => console.warn(err.code));
         }
 
         // --- АВТОМАТИЧНЕ СТИСНЕННЯ ФОТО ДО 45 КБ ДЛЯ FIREBASE ---
@@ -1694,7 +1704,7 @@
             document.getElementById('debut-hint-msg').style.display = 'none';
         }
 
-        function sendPromptReply() {
+        async function sendPromptReply() {
             const input = document.getElementById('reply-input');
             const text = input.value.trim();
 
@@ -1714,8 +1724,7 @@
             }
 
             document.getElementById('debut-hint-msg').style.display = 'none';
-            addVaultPoints(10);
-            nextProfile(true, `Дебютний хід (+10 💎): «${text}»`);
+            if (await nextProfile(true, `Дебютний хід (+10 💎): «${text}»`)) addVaultPoints(10);
         }
 
         function attemptSmartMatch() {
@@ -1811,29 +1820,37 @@
             document.getElementById('gift-modal').classList.remove('open');
         }
 
-        function sendGift(emoji, title, costStars) {
+        async function sendGift(emoji, title, costStars) {
+            if (movePending) return;
+            let topUp = false;
             if (costStars === 0) {
                 if (freeGiftsRemaining <= 0) {
                     alert("Твої 5 безкоштовних подарунків закінчилися! Обери преміум-подарунок за Зірки ⭐️.");
                     return;
                 }
-                freeGiftsRemaining--;
             } else {
                 if (userStars < costStars) {
                     const buyNow = confirm(`Подарунок «${title}» коштує ${costStars} ⭐️.\nПоповнити баланс на ${costStars} ⭐️ і надіслати?`);
                     if (!buyNow) return;
+                    topUp = true;
+                }
+            }
+            if (!await nextProfile(true, `Подарунок (+25 💎): ${emoji} ${title}`)) return;
+            if (costStars === 0) freeGiftsRemaining--;
+            else {
+                if (topUp) {
                     userStars += costStars;
                     adminRevenueStars += costStars;
                 }
                 userStars -= costStars;
             }
-
             addVaultPoints(25);
             saveBalances();
             closeGiftModal();
             playGiftAnimation(emoji);
-            nextProfile(true, `Подарунок (+25 💎): ${emoji} ${title}`);
         }
+
+        const originalCard = document.getElementById('card-holder').innerHTML;
 
         function renderCard() {
             const cardHolder = document.getElementById('card-holder');
@@ -1847,6 +1864,7 @@
                 return;
             }
 
+            if (!document.getElementById('current-card')) cardHolder.innerHTML = originalCard;
             const p = profiles[currentIndex];
             const cardEl = document.getElementById('current-card');
             const trustEl = document.getElementById('p-trust');
@@ -1874,38 +1892,53 @@
             document.getElementById('debut-hint-msg').style.display = 'none';
 
             const tagsBox = document.getElementById('p-tags');
-            tagsBox.innerHTML = (p.tags || []).map(t => `<span class="tag">${t}</span>`).join('');
+            tagsBox.innerHTML = (Array.isArray(p.tags) ? p.tags : []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
 
             const iceBox = document.getElementById('icebreakers-box');
-            const chips = p.icebreakers || ["Цікава відповідь, розкажеш детальніше? ✨", "Зіграємо цю партію за чашкою кави? ☕"];
-            iceBox.innerHTML = chips.map(c => `<span class="icebreaker-chip" onclick="fillIcebreaker('${c.replace(/'/g, "\\'")}')">⚡ ${c}</span>`).join('');
+            const chips = Array.isArray(p.icebreakers) ? p.icebreakers : ["Цікава відповідь, розкажеш детальніше? ✨", "Зіграємо цю партію за чашкою кави? ☕"];
+            iceBox.replaceChildren(...chips.map(text => {
+                const chip = document.createElement('span');
+                chip.className = 'icebreaker-chip';
+                chip.textContent = '⚡ ' + text;
+                chip.addEventListener('click', () => fillIcebreaker(text));
+                return chip;
+            }));
         }
 
-        function nextProfile(isLike, customReply) {
+        async function nextProfile(isLike, customReply) {
             const card = document.getElementById('current-card');
-            if (!card) return;
-
-            card.style.transform = isLike ? 'translateX(110px) rotate(6deg)' : 'translateX(-110px) rotate(-6deg)';
-            card.style.opacity = '0';
-
+            if (!card || movePending) return false;
+            movePending = true;
             if (isLike) {
-                const targetProfile = profiles[currentIndex];
-                const moveObj = {
-                    fromUserId: String(currentUserId),
-                    targetUsername: targetProfile.username || "",
-                    name: targetProfile.name,
-                    city: targetProfile.city,
-                    img: targetProfile.img,
-                    myReply: customReply || "Змістовний хід ♔",
-                    createdAt: Date.now()
-                };
-                sentResponses.unshift(moveObj);
-                updateMatchesUI();
-
-                if (isFirebaseConnected && db) {
-                    db.collection('ez_moves').add(moveObj).catch(e => console.warn(e));
+                try {
+                    const targetUserId = profiles[currentIndex]?.docId;
+                    const user = db && firebase.auth().currentUser;
+                    if (!isFirebaseConnected || !user || !targetUserId) {
+                        alert('Увійди через Telegram і вибери анкету зі стрічки.');
+                        return false;
+                    }
+                    const token = await user.getIdToken();
+                    const response = await fetch(apiOrigin + '/api/moves', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                        body: JSON.stringify({ targetUserId, myReply: customReply })
+                    });
+                    if (!response.ok) {
+                        if (response.status === 429) alert('Зачекай кілька секунд перед наступним ходом.');
+                        else alert('Не вдалося надіслати хід. Спробуй ще раз.');
+                        return false;
+                    }
+                } catch {
+                    alert('Не вдалося надіслати хід. Перевір з’єднання.');
+                    return false;
+                } finally {
+                    movePending = false;
                 }
             }
+
+            movePending = true;
+            card.style.transform = isLike ? 'translateX(110px) rotate(6deg)' : 'translateX(-110px) rotate(-6deg)';
+            card.style.opacity = '0';
 
             setTimeout(() => {
                 currentIndex++;
@@ -1913,16 +1946,18 @@
                 card.style.transform = 'translateX(0) rotate(0)';
                 card.style.opacity = '1';
                 renderCard();
+                movePending = false;
                 setTimeout(() => {
                     if (document.getElementById('current-card')) {
                         document.getElementById('current-card').style.transition = 'transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s ease';
                     }
                 }, 30);
             }, 220);
+            return true;
         }
 
         function banFromSwipe() {
-            if (currentIndex >= profiles.length) return;
+            if (!isViewingAsAdmin || currentIndex >= profiles.length) return;
             const target = profiles[currentIndex];
 
             if (isFirebaseConnected && db && target.docId) {
@@ -1965,10 +2000,6 @@
                 id: "#" + String(currentUserId).slice(-4),
                 tgId: String(currentUserId),
                 username: currentUsername,
-                isVip: true,
-                isBanned: false,
-                trustScore: 99,
-                trustLabel: "🛡️ 99% Верифіковано",
                 name: `${name}, ${age}`,
                 city: `${city} • Онлайн`,
                 img: uploadedPhotoDataUrl,
@@ -1982,43 +2013,70 @@
                 createdAt: Date.now()
             };
 
-            const btn = document.getElementById('reg-submit-btn');
-            btn.textContent = "⏳ Збереження в хмару...";
-
-            profiles.splice(currentIndex, 0, newProfileData);
-            renderCard();
-
-            if (isFirebaseConnected && db) {
-                try {
-                    await db.collection('ez_users').doc(String(currentUserId)).set(newProfileData);
-                } catch (e) {
-                    console.warn("Помилка запису в Firestore:", e);
-                }
+            if (!isFirebaseConnected || !currentUserId) {
+                alert('Увійди через Telegram, щоб зберегти анкету.');
+                return;
             }
+            const btn = document.getElementById('reg-submit-btn');
+            if (btn.disabled) return;
+            const label = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = "⏳ Збереження в хмару...";
+            try {
+                const ref = db.collection('ez_users').doc(currentUserId);
+                const { id, tgId, username, createdAt, ...editable } = newProfileData;
+                const created = await db.runTransaction(async tx => {
+                    const profile = await tx.get(ref);
+                    if (profile.exists) {
+                        tx.update(ref, editable);
+                        return false;
+                    }
+                    tx.set(ref, {
+                        ...newProfileData, isVip: false, isBanned: false, trustScore: 0,
+                        trustLabel: 'Новий профіль', registrationRewardGranted: false
+                    });
+                    return true;
+                });
+                if (created) addVaultPoints(30);
+                openTabDirectly('swipe');
+            } catch {
+                alert('Не вдалося зберегти анкету.');
+            } finally {
+                btn.textContent = label;
+                btn.disabled = false;
+            }
+        }
 
-            btn.textContent = "♞ Зберегти анкету в Firebase (+30 💎)";
-            addVaultPoints(30);
-            openTabDirectly('swipe');
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[char]));
+        }
+
+        function safeImage(value) {
+            const url = String(value || '');
+            return escapeHtml(/^(https:\/\/|data:image\/(png|jpeg|webp);base64,)/i.test(url) ? url : '');
         }
 
         function updateMatchesUI() {
-            document.getElementById('match-count').textContent = sentResponses.length;
+            const moves = [...sentResponses, ...receivedResponses].sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
+            document.getElementById('match-count').textContent = moves.length;
             const container = document.getElementById('matches-container');
-            if (sentResponses.length === 0) {
+            if (moves.length === 0) {
                 container.innerHTML = `<div class="box-card" style="text-align:center; color:var(--muted); font-size:12px;">Зроби змістовний перший хід ♞ або надішли подарунок 🎁, щоб почати діалог.</div>`;
                 return;
             }
-            container.innerHTML = sentResponses.map(p => `
+            container.innerHTML = moves.map(p => `
                 <div class="bw-card">
                     <div class="bw-card-header">
-                        <img class="avatar-sm" src="${p.img}">
+                        <img class="avatar-sm" src="${safeImage(p.img)}">
                         <div style="flex:1;">
-                            <h4 style="font-size:13px;">${p.name}</h4>
-                            <p style="font-size:10px; color:var(--muted);">${p.city}</p>
+                            <h4 style="font-size:13px;">${escapeHtml(p.incoming ? 'Вхідний хід' : p.name)}</h4>
+                            <p style="font-size:10px; color:var(--muted);">${escapeHtml(p.city)}</p>
                         </div>
-                        ${p.targetUsername ? `<a class="btn-sm btn-ban-bw" style="flex:0 0 auto;" href="https://t.me/${p.targetUsername}" target="_blank">💬 Чат</a>` : ''}
+                        ${!p.incoming && /^[A-Za-z0-9_]{1,32}$/.test(p.targetUsername || "") ? `<a class="btn-sm btn-ban-bw" style="flex:0 0 auto;" href="https://t.me/${p.targetUsername}" target="_blank" rel="noopener noreferrer">💬 Чат</a>` : ''}
                     </div>
-                    <div class="report-text"><strong>${p.myReply}</strong></div>
+                    <div class="report-text"><strong>${escapeHtml(p.myReply)}</strong></div>
                 </div>
             `).join('');
         }
@@ -2038,16 +2096,16 @@
                 : reportsData.map(r => `
                     <div class="bw-card">
                         <div class="bw-card-header">
-                            <img class="avatar-sm" src="${r.img}">
+                            <img class="avatar-sm" src="${safeImage(r.img)}">
                             <div>
-                                <h4 style="font-size:13px;">${r.name}</h4>
-                                <span class="reason-tag">${r.reason}</span>
+                                <h4 style="font-size:13px;">${escapeHtml(r.name)}</h4>
+                                <span class="reason-tag">${escapeHtml(r.reason)}</span>
                             </div>
                         </div>
-                        <div class="report-text">${r.text}</div>
+                        <div class="report-text">${escapeHtml(r.text)}</div>
                         <div class="admin-btn-row">
-                            <button class="btn-sm btn-ban-bw" onclick="handleReport('${r.id}', true)">♔ В бан</button>
-                            <button class="btn-sm btn-ignore-bw" onclick="handleReport('${r.id}', false)">Відхилити</button>
+                            <button class="btn-sm btn-ban-bw" onclick="handleReport(${escapeHtml(JSON.stringify(r.id))}, true)">♔ В бан</button>
+                            <button class="btn-sm btn-ignore-bw" onclick="handleReport(${escapeHtml(JSON.stringify(r.id))}, false)">Відхилити</button>
                         </div>
                     </div>
                 `).join('');
@@ -2057,16 +2115,16 @@
                 : botsData.map(b => `
                     <div class="bw-card">
                         <div class="bw-card-header">
-                            <img class="avatar-sm" src="${b.img}">
+                            <img class="avatar-sm" src="${safeImage(b.img)}">
                             <div>
-                                <h4 style="font-size:13px;">${b.name}</h4>
-                                <span class="reason-tag">${b.reason}</span>
+                                <h4 style="font-size:13px;">${escapeHtml(b.name)}</h4>
+                                <span class="reason-tag">${escapeHtml(b.reason)}</span>
                             </div>
                         </div>
-                        <div class="report-text">${b.text}</div>
+                        <div class="report-text">${escapeHtml(b.text)}</div>
                         <div class="admin-btn-row">
-                            <button class="btn-sm btn-ban-bw" onclick="handleBot('${b.id}', true)">🤖 Заблокувати</button>
-                            <button class="btn-sm btn-ignore-bw" onclick="handleBot('${b.id}', false)">Ігнорувати</button>
+                            <button class="btn-sm btn-ban-bw" onclick="handleBot(${escapeHtml(JSON.stringify(b.id))}, true)">🤖 Заблокувати</button>
+                            <button class="btn-sm btn-ignore-bw" onclick="handleBot(${escapeHtml(JSON.stringify(b.id))}, false)">Ігнорувати</button>
                         </div>
                     </div>
                 `).join('');
@@ -2076,18 +2134,19 @@
                 : bannedUsers.map((u, idx) => `
                     <div class="bw-card">
                         <div class="bw-card-header">
-                            <img class="avatar-sm" src="${u.img}">
+                            <img class="avatar-sm" src="${safeImage(u.img)}">
                             <div style="flex:1;">
-                                <h4 style="font-size:12px;">${u.name}</h4>
-                                <p style="font-size:10px; color:var(--muted);">${u.reason || 'Заблоковано'}</p>
+                                <h4 style="font-size:12px;">${escapeHtml(u.name)}</h4>
+                                <p style="font-size:10px; color:var(--muted);">${escapeHtml(u.reason || 'Заблоковано')}</p>
                             </div>
-                            <button class="btn-sm btn-ignore-bw" style="flex:0 0 auto; color:#fff;" onclick="unbanUser(${idx}, '${u.docId || ''}')">Розбанити</button>
+                            <button class="btn-sm btn-ignore-bw" style="flex:0 0 auto; color:#fff;" onclick="unbanUser(${idx}, ${escapeHtml(JSON.stringify(u.docId || ''))})">Розбанити</button>
                         </div>
                     </div>
                 `).join('');
         }
 
         function handleReport(id, isBan) {
+            if (!isViewingAsAdmin) return;
             const item = reportsData.find(r => r.id === id);
             if (isFirebaseConnected && db) {
                 db.collection('ez_reports').doc(id).delete().catch(e => console.warn(e));
@@ -2100,6 +2159,7 @@
         }
 
         function handleBot(id, isBan) {
+            if (!isViewingAsAdmin) return;
             const item = botsData.find(b => b.id === id);
             botsData = botsData.filter(b => b.id !== id);
             if (isBan && item) bannedUsers.push({ name: item.name, reason: "Спам-бот", img: item.img });
@@ -2107,6 +2167,7 @@
         }
 
         function unbanUser(index, docId) {
+            if (!isViewingAsAdmin) return;
             if (isFirebaseConnected && db && docId) {
                 db.collection('ez_users').doc(docId).update({ isBanned: false }).catch(e => console.warn(e));
             } else {
@@ -2116,6 +2177,7 @@
         }
 
         function switchTab(tabName, btnEl) {
+            if (tabName === 'admin' && !isViewingAsAdmin) return;
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.getElementById('tab-' + tabName).classList.add('active');
@@ -2164,6 +2226,8 @@
         renderCard();
         renderAdminLists();
         checkDailyBonus(false);
+        showAdminControls();
+        authenticateTelegram();
     </script>
 </body>
 </html>
