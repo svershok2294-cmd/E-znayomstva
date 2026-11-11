@@ -2,34 +2,67 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // ez_users contains discoverable profile data and moderation state.
+    // ez_moves is written by the backend. Client reads are participant-scoped.
+    // ez_blocks and ez_chat_reads use numeric Telegram IDs in their document paths.
+    // ez_reports is client-submitted and visible only to moderation.
     function telegramUser() {
       return request.auth != null
-        && request.auth.uid.matches('telegram:[0-9]+');
+        && request.auth.uid.matches('telegram:[1-9][0-9]{0,15}')
+        && request.auth.token.firebase.sign_in_provider == 'custom';
     }
 
     function admin() {
-      return telegramUser() && request.auth.token.admin == true;
+      return telegramUser() && request.auth.token.get('admin', false) == true;
     }
 
     function owner(userId) {
       return telegramUser() && request.auth.uid == 'telegram:' + userId;
     }
 
-    function validProfile() {
-      return request.resource.data.name is string
-        && request.resource.data.name.size() <= 120
-        && request.resource.data.city is string
-        && request.resource.data.city.size() <= 150
-        && request.resource.data.img is string
-        && request.resource.data.img.size() <= 750000
-        && request.resource.data.tags is list
-        && request.resource.data.tags.size() <= 12
-        && request.resource.data.question is string
-        && request.resource.data.question.size() <= 500
-        && request.resource.data.answer is string
-        && request.resource.data.answer.size() <= 600
-        && request.resource.data.icebreakers is list
-        && request.resource.data.icebreakers.size() <= 4;
+    function bounded(value, max) {
+      return value is string && value.size() <= max;
+    }
+
+    // Firestore Rules cannot iterate. Guard each indexed access for short lists.
+    function stringAt(values, index, max) {
+      return values.size() <= index || bounded(values[index], max);
+    }
+
+    function validTags(tags) {
+      return tags is list && tags.size() <= 12
+        && stringAt(tags, 0, 80)
+        && stringAt(tags, 1, 80)
+        && stringAt(tags, 2, 80)
+        && stringAt(tags, 3, 80)
+        && stringAt(tags, 4, 80)
+        && stringAt(tags, 5, 80)
+        && stringAt(tags, 6, 80)
+        && stringAt(tags, 7, 80)
+        && stringAt(tags, 8, 80)
+        && stringAt(tags, 9, 80)
+        && stringAt(tags, 10, 80)
+        && stringAt(tags, 11, 80);
+    }
+
+    function validProfile(data) {
+      return bounded(data.name, 120)
+        && bounded(data.city, 150)
+        && bounded(data.img, 750000)
+        && validTags(data.tags)
+        && bounded(data.question, 500)
+        && bounded(data.answer, 600)
+        && data.icebreakers is list && data.icebreakers.size() <= 4
+        && stringAt(data.icebreakers, 0, 300)
+        && stringAt(data.icebreakers, 1, 300)
+        && stringAt(data.icebreakers, 2, 300)
+        && stringAt(data.icebreakers, 3, 300);
+    }
+
+    function recentMillis(value) {
+      return value is int
+        && value >= request.time.toMillis() - 300000
+        && value <= request.time.toMillis() + 60000;
     }
 
     match /ez_users/{userId} {
@@ -43,17 +76,30 @@ service cloud.firestore {
           'trustScore', 'trustLabel', 'createdAt', 'registrationRewardGranted'
         ])
         && request.resource.data.tgId == userId
+        && request.resource.data.id is string
+        && request.resource.data.id.matches('#[0-9]{1,4}')
+        && request.resource.data.username is string
+        && request.resource.data.username.matches('[A-Za-z0-9_]{0,32}')
+        && request.resource.data.trustLabel == 'Новий профіль'
+        && recentMillis(request.resource.data.createdAt)
         && request.resource.data.isVip == false
         && request.resource.data.isBanned == false
         && request.resource.data.trustScore == 0
         && request.resource.data.registrationRewardGranted == false
-        && validProfile();
+        && validProfile(request.resource.data);
 
-      allow update: if admin() || (owner(userId)
+      function validModeration() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isBanned', 'reason'])
+          && request.resource.data.isBanned is bool
+          && bounded(request.resource.data.get('reason', ''), 250);
+      }
+
+      allow update: if (admin() && validModeration()) || (owner(userId)
+        && !resource.data.get('isBanned', false)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name', 'city', 'img', 'tags', 'question', 'answer', 'icebreakers'
         ])
-        && validProfile());
+        && validProfile(request.resource.data));
 
       allow delete: if false;
     }
@@ -63,40 +109,17 @@ service cloud.firestore {
     match /ez_blocks/{ownerId}/users/{blockedId} {
       allow get, list: if owner(ownerId);
       allow create: if owner(ownerId)
-        && blockedId.matches('[0-9]+')
+        && blockedId.matches('[1-9][0-9]{0,15}')
         && blockedId != ownerId
         && request.resource.data.keys().hasOnly(['blockedAt'])
-        && request.resource.data.blockedAt is number
-        && request.resource.data.blockedAt >= 0;
+        && recentMillis(request.resource.data.blockedAt);
       allow delete: if owner(ownerId);
       allow update: if false;
     }
 
-    function blockedEitherWay(senderId, recipientId) {
-      return exists(/databases/$(database)/documents/ez_blocks/$(senderId)/users/$(recipientId))
-        || exists(/databases/$(database)/documents/ez_blocks/$(recipientId)/users/$(senderId));
-    }
-
     match /ez_moves/{moveId} {
-      allow create: if telegramUser()
-        && request.resource.data.keys().hasOnly([
-          'fromUserId', 'targetUserId', 'targetUsername', 'name', 'city', 'img',
-          'myReply', 'createdAt'
-        ])
-        && request.resource.data.fromUserId is string
-        && request.resource.data.targetUserId is string
-        && request.resource.data.targetUserId.matches('[0-9]+')
-        && request.resource.data.targetUserId != request.resource.data.fromUserId
-        && !blockedEitherWay(request.resource.data.fromUserId, request.resource.data.targetUserId)
-        && exists(/databases/$(database)/documents/ez_users/$(request.resource.data.targetUserId))
-        && request.resource.data.myReply is string
-        && request.resource.data.myReply.size() <= 1000
-        && request.auth.uid == 'telegram:' + request.resource.data.fromUserId;
-      allow get, list: if telegramUser()
-        && (request.auth.uid == 'telegram:' + resource.data.fromUserId
-          || (resource.data.keys().hasAny(['targetUserId'])
-            && request.auth.uid == 'telegram:' + resource.data.targetUserId));
-      allow update, delete: if false;
+      allow read: if owner(resource.data.fromUserId) || owner(resource.data.targetUserId);
+      allow write: if false;
     }
 
     match /ez_chat_reads/{receiptId} {
@@ -105,17 +128,18 @@ service cloud.firestore {
         return request.resource.data.keys().hasOnly(['recipientId', 'senderId', 'seenAt'])
           && request.resource.data.recipientId is string
           && request.resource.data.senderId is string
-          && request.resource.data.recipientId.matches('[0-9]+')
-          && request.resource.data.senderId.matches('[0-9]+')
+          && request.resource.data.recipientId.matches('[1-9][0-9]{0,15}')
+          && request.resource.data.senderId.matches('[1-9][0-9]{0,15}')
           && request.resource.data.recipientId != request.resource.data.senderId
           && receiptId == request.resource.data.recipientId + '_' + request.resource.data.senderId
-          && request.resource.data.seenAt is number
+          && request.resource.data.seenAt is int
           && request.resource.data.seenAt >= 0
           && request.resource.data.seenAt <= request.time.toMillis() + 60000;
       }
-      allow get: if telegramUser() && (
-        request.auth.uid == 'telegram:' + resource.data.recipientId ||
-        request.auth.uid == 'telegram:' + resource.data.senderId);
+      // Allow a participant to subscribe before a receipt exists.
+      allow get: if telegramUser()
+        && (receiptId.matches(request.auth.uid.split(':')[1] + '_[1-9][0-9]{0,15}')
+          || receiptId.matches('[1-9][0-9]{0,15}_' + request.auth.uid.split(':')[1]));
       allow list, delete: if false;
       allow create: if telegramUser() && validReceipt()
         && request.auth.uid == 'telegram:' + request.resource.data.recipientId;
@@ -132,7 +156,12 @@ service cloud.firestore {
       allow create: if telegramUser()
         && request.resource.data.keys().hasOnly([
           'name', 'reason', 'text', 'img', 'createdAt'
-        ]);
+        ])
+        && bounded(request.resource.data.name, 180)
+        && bounded(request.resource.data.reason, 120)
+        && bounded(request.resource.data.text, 1200)
+        && bounded(request.resource.data.img, 750000)
+        && recentMillis(request.resource.data.createdAt);
       allow get, list, delete: if admin();
       allow update: if false;
     }
