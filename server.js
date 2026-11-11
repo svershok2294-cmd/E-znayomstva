@@ -7,12 +7,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 const PORT = Number(process.env.PORT || 10000);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-// Browser Origin for GitHub Pages contains only scheme + host (no repo path).
-const ALLOWED_ORIGINS = new Set([
-  'https://svershok2294-cmd.github.io',
-  'https://e-znayomstva-test.onrender.com',
-  ...(process.env.APP_ORIGIN ? [process.env.APP_ORIGIN] : [])
-]);
+const ALLOWED_ORIGINS = new Set(['https://e-znayomstva-test.onrender.com']);
 const MAX_AGE_SECONDS = 300;
 const ADMIN_TELEGRAM_ID = /^\d+$/.test(process.env.ADMIN_TELEGRAM_ID || '')
   ? process.env.ADMIN_TELEGRAM_ID
@@ -44,15 +39,35 @@ function parseServiceAccount(raw) {
   }
 }
 
+function loadTestFirebaseConfig(env) {
+  const projectId = env.FIREBASE_TEST_PROJECT_ID;
+  if (!projectId || !/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(projectId) ||
+      ['nazviazku', 'nazviazku-38b50'].includes(projectId)) {
+    throw new Error('An isolated Firebase project is required');
+  }
+
+  const { apiKey, appId, authDomain, projectId: webProjectId } =
+    JSON.parse(env.FIREBASE_TEST_WEB_CONFIG || '{}');
+  if (projectId !== webProjectId || authDomain !== projectId + '.firebaseapp.com' ||
+      typeof apiKey !== 'string' || !apiKey || typeof appId !== 'string' || !appId) {
+    throw new Error('Invalid test Firebase web configuration');
+  }
+
+  // Return only the public fields needed by Firebase Auth and Firestore.
+  return { apiKey, appId, authDomain, projectId };
+}
+
 let firebaseReady = false;
+let firebaseWebConfig;
 try {
+  firebaseWebConfig = loadTestFirebaseConfig(process.env);
   const credentialJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || fs.readFileSync('/etc/secrets/firebase-service-account.json', 'utf8');
   const key = parseServiceAccount(credentialJson);
-  if (key.project_id !== 'nazviazku') throw new Error('Unexpected Firebase project');
-  initializeApp({ credential: cert(key) });
+  if (key.project_id !== firebaseWebConfig.projectId) throw new Error('Unexpected Firebase project');
+  initializeApp({ credential: cert(key), projectId: firebaseWebConfig.projectId });
   firebaseReady = true;
-} catch (error) {
-  console.error('Firebase initialization unavailable:', error.message);
+} catch {
+  console.error('Firebase initialization unavailable: check isolated test project configuration');
 }
 
 function send(res, status, body, origin = '') {
@@ -140,7 +155,7 @@ const server = http.createServer((req, res) => {
   // Test-only request trace: never log query strings, headers, tokens or user content.
   // Unknown paths are hashed rather than printed to avoid exposing identifiers.
   const pathOnly = String(req.url || '').split('?')[0];
-  const safeRoute = ['/health', '/__diagnostic', '/auth/telegram', '/api/moves'].includes(pathOnly)
+  const safeRoute = ['/health', '/__diagnostic', '/firebase-config', '/auth/telegram', '/api/moves'].includes(pathOnly)
     ? pathOnly
     : 'other:' + crypto.createHash('sha256').update(pathOnly).digest('hex').slice(0, 10);
   console.log('HTTP route trace:', req.method, safeRoute);
@@ -160,6 +175,11 @@ const server = http.createServer((req, res) => {
     });
   }
   if (pathOnly === '/health' && req.method === 'GET') return send(res, 200, { ok: true, configured: Boolean(BOT_TOKEN), firebaseReady });
+  if (pathOnly === '/firebase-config' && req.method === 'GET') {
+    if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
+    if (!firebaseReady) return send(res, 503, { error: 'Test Firebase is unavailable' }, corsOrigin);
+    return send(res, 200, firebaseWebConfig, corsOrigin);
+  }
   if (pathOnly === '/api/moves' && process.env.ENABLE_TEST_SERVER_MOVES === 'true') {
     if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
     if (req.method === 'OPTIONS') {

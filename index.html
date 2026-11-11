@@ -1426,31 +1426,12 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // Public Firebase Web configuration for the nazviazku project.
-        const firebaseConfig = {
-            apiKey: "AIzaSyC5Ox_25cWYi12M3dMlCpCXKfT-oZub8ts",
-            authDomain: "nazviazku.firebaseapp.com",
-            projectId: "nazviazku",
-            storageBucket: "nazviazku.firebasestorage.app",
-            messagingSenderId: "888760556395",
-            appId: "1:888760556395:web:8262589e08a7726d2c4a2e",
-            measurementId: "G-1QY879RQGX"
-        };
-
+        const TEST_APP_HOST = 'e-znayomstva-test.onrender.com';
+        const TELEGRAM_AUTH_BASE = 'https://e-znayomstva-test-auth.onrender.com';
         let db = null;
         let isFirebaseConnected = false;
         let verifiedTelegramUser = null;
-        try {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-        } catch (err) {
-            console.warn("Firebase initialization failed:", err);
-        }
 
-        // Match the auth backend to the Mini App host. Never send production bot initData to test auth.
-        const TELEGRAM_AUTH_BASE = location.hostname === 'e-znayomstva-test.onrender.com'
-            ? 'https://e-znayomstva-test-auth.onrender.com'
-            : 'https://e-znayomstva-auth.onrender.com';
         function showTelegramReopenNotice() {
             const diagnostic = document.getElementById('auth-diagnostic');
             if (diagnostic) diagnostic.textContent = 'Сесія Telegram застаріла. Закрий застосунок і відкрий його знову через бота.';
@@ -1462,7 +1443,22 @@
             let stage = 'telegram';
             const showStage = text => { if (diagnostic) diagnostic.textContent = text; };
             try {
-                if (!db || !tg.initData) throw new Error(!db ? 'FIREBASE_SDK' : 'TELEGRAM_INITDATA');
+                if (location.hostname !== TEST_APP_HOST) throw new Error('TEST_HOST_REQUIRED');
+                if (!tg.initData) throw new Error('TELEGRAM_INITDATA');
+                if (typeof firebase === 'undefined') throw new Error('FIREBASE_SDK');
+                stage = 'config';
+                const configResponse = await fetch(TELEGRAM_AUTH_BASE + '/firebase-config');
+                if (!configResponse.ok) throw new Error('HTTP_' + configResponse.status);
+                const config = await configResponse.json();
+                if (!config || typeof config.projectId !== 'string' ||
+                    !/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(config.projectId) ||
+                    ['nazviazku', 'nazviazku-38b50'].includes(config.projectId) ||
+                    config.authDomain !== config.projectId + '.firebaseapp.com' ||
+                    !config.apiKey || !config.appId) {
+                    throw new Error('TEST_FIREBASE_CONFIG');
+                }
+                firebase.initializeApp(config);
+                db = firebase.firestore();
                 stage = 'server';
                 showStage('Вхід: перевірка сервера…');
                 const response = await fetch(TELEGRAM_AUTH_BASE + '/auth/telegram', {
@@ -1501,7 +1497,7 @@
                 verifiedTelegramUser = null;
                 const safeCode = error instanceof TypeError ? 'NETWORK_OR_CORS' :
                     /^HTTP_\d{3}$/.test(error.message) ? error.message :
-                    ['FIREBASE_SDK','TELEGRAM_INITDATA','TELEGRAM_SESSION_EXPIRED'].includes(error.message) ? error.message :
+                    ['FIREBASE_SDK','TEST_HOST_REQUIRED','TEST_FIREBASE_CONFIG','TELEGRAM_INITDATA','TELEGRAM_SESSION_EXPIRED'].includes(error.message) ? error.message :
                     /^auth\/[a-z-]{1,60}$/.test(error.code || '') ? error.code : 'UNKNOWN';
                 if (safeCode === 'TELEGRAM_SESSION_EXPIRED' || safeCode === 'TELEGRAM_INITDATA') showTelegramReopenNotice();
                 else showStage('Вхід: ' + stage + ' / ' + safeCode);
@@ -1931,7 +1927,7 @@
             });
         }
         async function submitMoveViaServer(targetUserId, myReply) {
-            if (location.hostname !== 'e-znayomstva-test.onrender.com')
+            if (location.hostname !== TEST_APP_HOST)
                 throw new Error('Серверне надсилання доступне лише у тестовому застосунку.');
             const currentUser = firebase.auth().currentUser;
             if (!currentUser || !verifiedTelegramUser || currentUser.uid !== 'telegram:' + verifiedTelegramUser.id)

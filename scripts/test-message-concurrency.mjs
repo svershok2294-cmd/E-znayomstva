@@ -35,20 +35,32 @@ test('Telegram login issues a Firebase session that can send moves over HTTP', a
   connectAuthEmulator(clientAuth, 'http://127.0.0.1:9099', { disableWarnings: true });
   const db = getFirestore(app);
   const origin = 'https://e-znayomstva-test.onrender.com';
-  const flags = {};
   let server;
   try {
     const source = await readFile(new URL('../server.js', import.meta.url), 'utf8');
-    const start = source.indexOf('function send(res,');
+    const start = source.indexOf('function loadTestFirebaseConfig(');
     const end = source.indexOf('\nserver.listen(', start);
     assert.ok(start >= 0 && end > start, 'Message handler not found');
 
+    const publicConfig = {
+      projectId,
+      apiKey: 'synthetic-test-key',
+      appId: 'synthetic-test-app',
+      authDomain: projectId + '.firebaseapp.com'
+    };
+    const config = {
+      FIREBASE_TEST_PROJECT_ID: projectId,
+      FIREBASE_TEST_WEB_CONFIG: JSON.stringify({ ...publicConfig, ignored: 'private' }),
+      FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify({ project_id: projectId })
+    };
     const context = vm.createContext({
       http,
       console: { log() {}, warn() {}, error() {} },
-      process: { env: flags },
+      process: { env: config },
       ALLOWED_ORIGINS: new Set([origin]),
-      firebaseReady: true,
+      parseServiceAccount: JSON.parse,
+      cert: value => value,
+      initializeApp: options => assert.equal(options.projectId, projectId),
       BOT_TOKEN: botToken,
       ADMIN_TELEGRAM_ID: '703',
       MAX_AGE_SECONDS: 300,
@@ -63,10 +75,31 @@ test('Telegram login issues a Firebase session that can send moves over HTTP', a
       })
     });
     server = vm.runInContext(source.slice(start, end) + '\nserver;', context);
+    for (const id of ['nazviazku', 'nazviazku-38b50', '']) {
+      assert.throws(() => context.loadTestFirebaseConfig({ ...config, FIREBASE_TEST_PROJECT_ID: id }),
+        /isolated Firebase project/);
+    }
+    assert.throws(() => context.loadTestFirebaseConfig({
+      ...config, FIREBASE_TEST_WEB_CONFIG: JSON.stringify({ ...publicConfig, projectId: 'other-project' })
+    }), /Invalid test Firebase web configuration/);
+    const bootstrap = source.slice(start, source.indexOf('function send(res,', start));
+    const mismatched = vm.runInNewContext(bootstrap + '\nfirebaseReady;', {
+      ...context,
+      process: { env: { ...config, FIREBASE_SERVICE_ACCOUNT_JSON: '{"project_id":"nazviazku"}' } },
+      initializeApp: () => assert.fail('A mismatched service account must never initialize Firebase')
+    });
+    assert.equal(mismatched, false);
     server.listen(0, '127.0.0.1');
     await once(server, 'listening');
     const baseUrl = 'http://127.0.0.1:' + server.address().port;
     const url = baseUrl + '/api/moves';
+    const configResponse = await fetch(baseUrl + '/firebase-config', { headers: { Origin: origin } });
+    assert.equal(configResponse.status, 200);
+    assert.deepEqual(await configResponse.json(), publicConfig);
+    const deniedConfig = await fetch(baseUrl + '/firebase-config', {
+      headers: { Origin: 'https://svershok2294-cmd.github.io' }
+    });
+    assert.equal(deniedConfig.status, 403);
     const login = initData => fetch(baseUrl + '/auth/telegram', {
       method: 'POST',
       headers: { Origin: origin, 'Content-Type': 'application/json' },
@@ -111,7 +144,7 @@ test('Telegram login issues a Firebase session that can send moves over HTTP', a
     const message = { targetUserId: '702', myReply: 'Synthetic message' };
     const send = () => post(message);
     assert.equal((await send()).status, 404);
-    flags.ENABLE_TEST_SERVER_MOVES = 'true';
+    context.process.env.ENABLE_TEST_SERVER_MOVES = 'true';
 
     const preflight = await fetch(url, { method: 'OPTIONS', headers: { Origin: origin } });
     assert.equal(preflight.status, 204);

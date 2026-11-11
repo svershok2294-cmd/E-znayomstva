@@ -82,3 +82,39 @@ const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
   console.log('PASS unauthenticated send is blocked');
 }
 console.log('3/3 candidate swipe behavior tests passed.');
+
+{
+  const authStart = html.indexOf('const TEST_APP_HOST');
+  const authEnd = html.indexOf('// --- АВТОРИЗАЦІЯ TELEGRAM ---', authStart);
+  assert.ok(authStart >= 0 && authEnd > authStart, 'Test Firebase initialization must be present');
+  const source = html.slice(authStart, authEnd);
+
+  for (const [hostname, projectId, expectedRequests] of [
+    ['svershok2294-cmd.github.io', 'demo-e-znayomstva', []],
+    ['e-znayomstva-test.onrender.com', 'nazviazku', ['/firebase-config']],
+    ['e-znayomstva-test.onrender.com', 'nazviazku-38b50', ['/firebase-config']]
+  ]) {
+    const requests = [];
+    let initialized = false;
+    const context = vm.createContext({
+      location: { hostname },
+      tg: { initData: 'synthetic-telegram-data' },
+      document: { getElementById: () => null },
+      console: { warn() {} },
+      firebase: { initializeApp() { initialized = true; } },
+      async fetch(url) {
+        requests.push(new URL(url).pathname);
+        return {
+          ok: true,
+          json: async () => ({
+            projectId, authDomain: projectId + '.firebaseapp.com', apiKey: 'test', appId: 'test'
+          })
+        };
+      }
+    });
+    await vm.runInContext(source + '\nauthenticateTelegram();', context);
+    assert.equal(initialized, false);
+    assert.deepEqual(requests, expectedRequests);
+  }
+  console.log('PASS non-test host and production Firebase projects are blocked before sign-in');
+}
