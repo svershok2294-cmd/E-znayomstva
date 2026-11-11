@@ -137,6 +137,19 @@ async function createRateLimitedMove(body, idToken) {
 const server = http.createServer((req, res) => {
   const origin = req.headers.origin || '';
   const corsOrigin = ALLOWED_ORIGINS.has(origin) ? origin : '';
+  // Test-only, read-only diagnostics. Never include credentials, tokens or user data.
+  if (req.url === '/health' || req.url === '/__diagnostic') {
+    console.log('Test route check:', req.method, req.url);
+  }
+  if (req.url === '/__diagnostic' && req.method === 'GET') {
+    return send(res, 200, {
+      service: 'e-znayomstva-test-auth',
+      revision: String(process.env.RENDER_GIT_COMMIT || 'unknown').slice(0, 12),
+      healthRoute: true,
+      serverMovesEnabled: process.env.ENABLE_TEST_SERVER_MOVES === 'true',
+      firebaseReady
+    });
+  }
   if (req.url === '/health' && req.method === 'GET') return send(res, 200, { ok: true, configured: Boolean(BOT_TOKEN), firebaseReady });
   if (req.url === '/api/moves' && process.env.ENABLE_TEST_SERVER_MOVES === 'true') {
     if (origin && !corsOrigin) return send(res, 403, { error: 'Origin not allowed' });
