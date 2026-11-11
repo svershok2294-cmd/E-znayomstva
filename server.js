@@ -14,7 +14,7 @@ const ALLOWED_ORIGINS = new Set([
   ...(process.env.APP_ORIGIN ? [process.env.APP_ORIGIN] : [])
 ]);
 const MAX_AGE_SECONDS = 300;
-const ADMIN_TELEGRAM_ID = /^\\d+$/.test(process.env.ADMIN_TELEGRAM_ID || '')
+const ADMIN_TELEGRAM_ID = /^\d+$/.test(process.env.ADMIN_TELEGRAM_ID || '')
   ? process.env.ADMIN_TELEGRAM_ID
   : '';
 
