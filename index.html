@@ -1904,7 +1904,6 @@
         }
         // Test rollout switch. Keep false until the test auth backend endpoint is enabled and verified.
         // Test host defaults to server sends; ?serverMoves=0 is an emergency test-only rollback.
-        const USE_TEST_SERVER_MOVES = location.hostname === 'e-znayomstva-test.onrender.com' && new URLSearchParams(location.search).get('serverMoves') !== '0';
         // Read-only security diagnostic: no credentials, no message, no database writes.
         if (location.hostname === 'e-znayomstva-test.onrender.com' &&
             new URLSearchParams(location.search).get('antispamCheck') === '1') {
@@ -1932,6 +1931,8 @@
             });
         }
         async function submitMoveViaServer(targetUserId, myReply) {
+            if (location.hostname !== 'e-znayomstva-test.onrender.com')
+                throw new Error('Серверне надсилання доступне лише у тестовому застосунку.');
             const currentUser = firebase.auth().currentUser;
             if (!currentUser || !verifiedTelegramUser || currentUser.uid !== 'telegram:' + verifiedTelegramUser.id)
                 throw new Error('Спочатку підтвердь вхід через Telegram.');
@@ -1964,23 +1965,7 @@
             recordMessageSent(senderId);
             button.disabled = true;
             try {
-                if (USE_TEST_SERVER_MOVES) {
-                    await submitMoveViaServer(senderId, text);
-                    return true;
-                }
-                const doc = await db.collection('ez_users').doc(String(senderId)).get();
-                if (!doc.exists || doc.data().isBanned) throw Error('Анкету співрозмовника не знайдено.');
-                const target = doc.data();
-                await db.collection('ez_moves').add({
-                    fromUserId: String(verifiedTelegramUser.id),
-                    targetUserId: String(senderId),
-                    targetUsername: String(target.username || ''),
-                    name: String(target.name || ''),
-                    city: String(target.city || ''),
-                    img: String(target.img || ''),
-                    myReply: text,
-                    createdAt: Date.now()
-                });
+                await submitMoveViaServer(senderId, text);
                 return true;
             } catch (e) {
                 // Failed sends must not consume the waiting period.
@@ -2039,11 +2024,11 @@
             }
 
             const myId = String(verifiedTelegramUser.id);
-            db.collection('ez_moves').where('fromUserId', '==', myId).limit(30).onSnapshot(snapshot => {
+            db.collection('ez_moves').where('fromUserId', '==', myId).orderBy('createdAt', 'desc').limit(30).onSnapshot(snapshot => {
                 sentResponses = snapshot.docs.map(doc => ({ moveId: doc.id, ...doc.data(), direction: 'sent' }));
                 updateMatchesUI();
             }, err => console.warn('Outgoing moves:', err.code || err.message));
-            db.collection('ez_moves').where('targetUserId', '==', myId).limit(30).onSnapshot(snapshot => {
+            db.collection('ez_moves').where('targetUserId', '==', myId).orderBy('createdAt', 'desc').limit(30).onSnapshot(snapshot => {
                 const fresh = snapshot.docs.filter(doc => !knownIncomingMoveIds.has(doc.id) && !doc.metadata.hasPendingWrites);
                 if (incomingMoveInitialized && fresh.length) playIncomingMoveSound();
                 snapshot.docs.forEach(doc => knownIncomingMoveIds.add(doc.id));
@@ -2313,58 +2298,59 @@
             });
         }
 
-        function nextProfile(isLike, customReply) {
+        let profileMovePending = false;
+        async function nextProfile(isLike, customReply) {
             const card = document.getElementById('current-card');
-            if (!card) return;
-
-            card.style.transform = isLike ? 'translateX(110px) rotate(6deg)' : 'translateX(-110px) rotate(-6deg)';
-            card.style.opacity = '0';
-
-            if (isLike) {
-                const targetProfile = profiles[currentIndex];
-                const targetId = String(targetProfile?.docId || targetProfile?.tgId || '');
-                if (warnMessageCooldown(targetId)) {
+            if (!card || profileMovePending) return;
+            profileMovePending = true;
+            try {
+                if (isLike) {
+                    if (!verifiedTelegramUser || !isFirebaseConnected || !db) {
+                        alert('Спочатку підтвердь вхід через Telegram, щоб надіслати хід.');
+                        return;
+                    }
+                    const targetProfile = profiles[currentIndex];
+                    const targetId = String(targetProfile?.docId || targetProfile?.tgId || '');
+                    const senderId = String(verifiedTelegramUser.id);
+                    if (!/^\d+$/.test(targetId) || targetId === senderId) {
+                        alert('Не вдалося визначити одержувача ходу. Онови стрічку та спробуй ще раз.');
+                        return;
+                    }
+                    if (warnMessageCooldown(targetId)) return;
+                    const previousTime = lastMessageTimes.get(targetId) || 0;
+                    recordMessageSent(targetId);
+                    try {
+                        await submitMoveViaServer(targetId, customReply || 'Змістовний хід ♔');
+                    } catch (e) {
+                        lastMessageTimes.set(targetId, previousTime);
+                        try {
+                            const key = 'ez_last_message_' + senderId + '_' + targetId;
+                            if (previousTime) localStorage.setItem(key, String(previousTime));
+                            else localStorage.removeItem(key);
+                        } catch (_) {}
+                        console.warn('Move save failed:', e.code || e.message);
+                        alert(e.message || 'Не вдалося надіслати хід. Спробуй ще раз.');
+                        return;
+                    }
+                }
+                card.style.transform = isLike ? 'translateX(110px) rotate(6deg)' : 'translateX(-110px) rotate(-6deg)';
+                card.style.opacity = '0';
+                setTimeout(() => {
+                    currentIndex++;
+                    card.style.transition = 'none';
                     card.style.transform = 'translateX(0) rotate(0)';
                     card.style.opacity = '1';
-                    return;
-                }
-                const moveObj = {
-                    fromUserId: String(verifiedTelegramUser.id),
-                    targetUserId: String(targetProfile.docId || targetProfile.tgId || ''),
-                    targetUsername: targetProfile.username || "",
-                    name: targetProfile.name,
-                    city: targetProfile.city,
-                    img: targetProfile.img,
-                    myReply: customReply || "Змістовний хід ♔",
-                    createdAt: Date.now()
-                };
-                if (isFirebaseConnected && db && verifiedTelegramUser && /^\d+$/.test(moveObj.targetUserId) && moveObj.targetUserId !== moveObj.fromUserId) {
-                    recordMessageSent(moveObj.targetUserId);
-                    (USE_TEST_SERVER_MOVES
-                        ? submitMoveViaServer(moveObj.targetUserId, moveObj.myReply)
-                        : db.collection('ez_moves').add(moveObj)).catch(e => {
-                        lastMessageTimes.delete(moveObj.targetUserId);
-                        try { localStorage.removeItem('ez_last_message_' + String(verifiedTelegramUser.id) + '_' + moveObj.targetUserId); } catch (_) {}
-                        console.warn('Move save failed:', e.code || e.message);
-                        alert("Не вдалося зберегти хід. Перевір підключення до Firebase.");
-                    });
-                } else {
-                    alert(!verifiedTelegramUser || !isFirebaseConnected || !db ? "Спочатку підтвердь вхід через Telegram, щоб зберегти хід." : "Не вдалося визначити одержувача ходу. Онови стрічку та спробуй ще раз.");
-                }
+                    renderCard();
+                    setTimeout(() => {
+                        const currentCard = document.getElementById('current-card');
+                        if (currentCard) currentCard.style.transition = 'transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s ease';
+                        profileMovePending = false;
+                    }, 30);
+                }, 220);
+            } finally {
+                // Animation retains the lock briefly; failed sends release it immediately.
+                if (card.style.opacity !== '0') profileMovePending = false;
             }
-
-            setTimeout(() => {
-                currentIndex++;
-                card.style.transition = 'none';
-                card.style.transform = 'translateX(0) rotate(0)';
-                card.style.opacity = '1';
-                renderCard();
-                setTimeout(() => {
-                    if (document.getElementById('current-card')) {
-                        document.getElementById('current-card').style.transition = 'transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s ease';
-                    }
-                }, 30);
-            }, 220);
         }
 
         function banFromSwipe() {

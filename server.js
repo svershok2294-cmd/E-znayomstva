@@ -92,25 +92,27 @@ function verifyTelegram(initData, reportFailure = () => {}) {
 async function createRateLimitedMove(body, idToken) {
   if (!firebaseReady) return { status: 503, body: { error: 'Firebase unavailable' } };
   const decoded = await getAuth().verifyIdToken(idToken, true);
-  if (!/^telegram:[0-9]+$/.test(decoded.uid)) return { status: 401, body: { error: 'Invalid account' } };
+  if (!/^telegram:[1-9][0-9]{0,15}$/.test(decoded.uid) || decoded.firebase?.sign_in_provider !== 'custom') return { status: 401, body: { error: 'Invalid account' } };
   const sender = decoded.uid.slice('telegram:'.length);
   const recipient = String(body.targetUserId || '');
   const message = body.myReply;
-  if (!/^[0-9]+$/.test(recipient) || recipient === sender ||
+  if (!/^[1-9][0-9]{0,15}$/.test(recipient) || recipient === sender ||
       typeof message !== 'string' || !message.trim() || message.length > 1000) {
     return { status: 400, body: { error: 'Invalid recipient or message' } };
   }
   const firestore = getFirestore();
   const limitRef = firestore.collection('ez_message_limits').doc(sender + '_' + recipient);
-  const userRef = firestore.collection('ez_users').doc(recipient);
+  const users = firestore.collection('ez_users');
+  const senderRef = users.doc(sender);
+  const recipientRef = users.doc(recipient);
   const blockedBySender = firestore.collection('ez_blocks').doc(sender).collection('users').doc(recipient);
   const blockedByRecipient = firestore.collection('ez_blocks').doc(recipient).collection('users').doc(sender);
-  const now = Date.now();
   const result = await firestore.runTransaction(async tx => {
     // All reads precede all writes. Firestore retries this transaction on contention.
-    const [limit, user, block1, block2] = await Promise.all([
-      tx.get(limitRef), tx.get(userRef), tx.get(blockedBySender), tx.get(blockedByRecipient)
+    const [limit, senderProfile, user, block1, block2] = await Promise.all([
+      tx.get(limitRef), tx.get(senderRef), tx.get(recipientRef), tx.get(blockedBySender), tx.get(blockedByRecipient)
     ]);
+    if (senderProfile.data()?.isBanned) return { status: 403, body: { error: 'Messaging blocked' } };
     if (!user.exists || user.data().isBanned) return { status: 404, body: { error: 'Recipient unavailable' } };
     if (block1.exists || block2.exists) return { status: 403, body: { error: 'Messaging blocked' } };
     const previous = Number(limit.data()?.lastSentAt || 0);
