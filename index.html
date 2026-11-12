@@ -1714,11 +1714,11 @@
             }
 
             const myId = String(verifiedTelegramUser.id);
-            db.collection('ez_moves').where('fromUserId', '==', myId).limit(30).onSnapshot(snapshot => {
+            db.collection('ez_moves').where('fromUserId', '==', myId).orderBy('createdAt', 'desc').limit(30).onSnapshot(snapshot => {
                 sentResponses = snapshot.docs.map(doc => ({ moveId: doc.id, ...doc.data(), direction: 'sent' }));
                 updateMatchesUI();
             }, err => console.warn('Outgoing moves:', err.code || err.message));
-            db.collection('ez_moves').where('targetUserId', '==', myId).limit(30).onSnapshot(snapshot => {
+            db.collection('ez_moves').where('targetUserId', '==', myId).orderBy('createdAt', 'desc').limit(30).onSnapshot(snapshot => {
                 const fresh = snapshot.docs.filter(doc => !knownIncomingMoveIds.has(doc.id) && !doc.metadata.hasPendingWrites);
                 if (incomingMoveInitialized && fresh.length) playIncomingMoveSound();
                 snapshot.docs.forEach(doc => knownIncomingMoveIds.add(doc.id));
