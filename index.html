@@ -1791,7 +1791,7 @@
                     const newReport = {
                         name: `${currentUserName} (TG ID: ${currentUserId})`,
                         reason: "🛡️ АВТО-БЛОК: Спам / Посилання",
-                        text: `Авто-сканер заблокував текст: «${text}»`,
+                        text: `Авто-сканер заблокував текст: «${text.slice(0, 1000)}»`,
                         img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80",
                         createdAt: Date.now()
                     };
